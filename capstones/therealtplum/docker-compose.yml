@@ -1,0 +1,76 @@
+services:
+  # -------------------------------------------------------------------
+  # Postgres – system of record
+  # -------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    container_name: fmhub_db
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: fmhub
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  # -------------------------------------------------------------------
+  # Redis – cache
+  # -------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: fmhub_redis
+    ports:
+      - "6379:6379"
+
+  # -------------------------------------------------------------------
+  # Rust API – Axum service (wired up later)
+  # -------------------------------------------------------------------
+  api:
+    build:
+      context: ./apps/rust-api
+      dockerfile: Dockerfile
+    container_name: fmhub_api
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/fmhub
+      REDIS_URL: redis://redis:6379
+      RUST_LOG: info
+    ports:
+      - "3000:3000"
+
+  # -------------------------------------------------------------------
+  # Python ETL – one-shot ETL jobs (wired up later)
+  # -------------------------------------------------------------------
+  etl:
+    build:
+      context: ./apps/python-etl
+      dockerfile: Dockerfile
+    container_name: fmhub_etl
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/fmhub
+    # Example (later):
+    # command: ["python", "-m", "etl.jobs.full_refresh"]
+
+  # -------------------------------------------------------------------
+  # Web – Next.js frontend
+  # -------------------------------------------------------------------
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    container_name: fmhub_web
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
+    ports:
+      - "3001:3000"
+      # Browser hits http://localhost:3001 → Next.js → Rust API on :3000
+
+volumes:
+  db-data:
