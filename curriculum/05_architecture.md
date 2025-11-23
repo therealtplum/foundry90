@@ -26,16 +26,16 @@ This architecture teaches breadth, glue, systems-level thinking, and trade-offs.
 
 ---
 
-## Mermaid diagram (paste into GitHub)
+## Mermaid diagram
 
 ```mermaid
 flowchart TD
-    A[Next.js Frontend] --> B[Rust API (Axum)]
-    B --> C[Postgres Database]
-    B --> D[Redis Cache]
-    E[Python ETL] --> C
+    A["Next.js Frontend"] --> B["Rust API (Axum)"]
+    B --> C["Postgres Database"]
+    B --> D["Redis Cache"]
+    E["Python ETL"] --> C
     E --> B
-    F[External Data Sources<br>(APIs / feeds / files)] --> E
+    F["External Data Sources / APIs / Feeds / Files"] --> E
 ```
 
 This is intentionally flexible. If your capstone domain differs (sports dashboard, analytics platform, risk system, etc.), the shape stays the same.
