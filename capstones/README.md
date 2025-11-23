@@ -1,75 +1,67 @@
-# Foundry90 Capstones
+# therealtplum Capstone – Foundry90
 
-This folder contains **capstone projects** — the final deliverable of the Foundry90 program.
+This folder contains my personal implementation of the Foundry90 capstone.
 
-A capstone is a **fully built, end-to-end system** that demonstrates your mastery across:
+The goal is to build a **fully integrated prediction markets / event-driven system** using:
 
-- frontend  
-- backend  
-- data pipelines  
-- databases  
-- infrastructure  
-- documentation  
-- architectural reasoning  
+- **Next.js** – frontend UI + admin tools  
+- **Rust + Axum** – backend API service  
+- **Python** – ETL + data ingestion and normalization  
+- **Postgres** – system of record  
+- **Redis** – caching layer  
+- **Docker Compose** – local dev environment  
+- **AWS (ECS/RDS)** – deployment target  
 
-Every participant builds *their own unique system*.
+This capstone emphasizes:
+
+- architectural clarity  
+- predictable data flows  
+- reliability and observability  
+- production-like structure  
+- iterating from skeleton → full system  
 
 ---
 
 ## 📂 Structure
 
-Each capstone lives in its own folder:
-
 ```
-capstones/
-  <your-name>/
-    apps/
-    services/
-    infra/
-    docs/
-    README.md
-```
+apps/
+  web/         # Next.js frontend (to be initialized)
+  rust-api/    # Rust API service (to be scaffolded)
+  python-etl/  # ETL pipeline (to be scaffolded)
 
-The structure mirrors the template in `starter-kit/monorepo_template`.
+services/
+  db/          # DB migrations, seeds
+
+infra/
+  docker/      # Dockerfiles and infra notes
+
+docs/
+  architecture.md
+  design-decisions.md
+```
 
 ---
 
-## 🧩 How to Add Your Own Capstone
+## 🚧 Status
 
-1. Create a new folder:
+This capstone is currently scaffolded and will be developed through the Foundry90 program milestones:
 
-   ```bash
-   mkdir -p capstones/<your-name>
-   ```
-
-2. Copy the starter monorepo template:
-
-   ```bash
-   cp -R starter-kit/monorepo_template/* capstones/<your-name>/
-   ```
-
-3. Begin implementing your system:
-   - Build out your `apps/web`
-   - Build your Rust API in `apps/rust-api`
-   - Build your ETL in `apps/python-etl`
-   - Add migrations under `services/db`
-
-4. Write a `README.md` inside your capstone folder that explains:
-   - what you built  
-   - architecture  
-   - how to run it  
-   - design decisions  
-
-5. (Optional) Open a PR to contribute your capstone to the main repo.
+- Week 1–3 → foundations  
+- Week 4–6 → local monorepo + basic system  
+- Week 7–9 → cloud infra + ETL  
+- Week 10–12 → full integration + polish  
 
 ---
 
-## 🤝 Community Capstones
+## 🧭 How to Run (placeholder)
 
-Anyone is welcome to fork Foundry90, complete the curriculum, and open a PR to add their capstone under:
+This will be updated once the initial services are in place.
 
-```
-capstones/<your-name>/
-```
+---
 
-Please only submit **original work** that follows the repo structure.
+## 📝 Notes to Self
+
+- Maintain clean commits with explanatory messages  
+- Document design decisions as they occur  
+- Focus on simplicity and readability  
