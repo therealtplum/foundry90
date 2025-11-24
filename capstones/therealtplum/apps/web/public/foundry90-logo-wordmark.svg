@@ -1,0 +1,18 @@
+<svg width="1024" height="256" viewBox="0 0 1024 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="256" rx="40" fill="#050608" />
+
+  <!-- Text -->
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    fill="#43FF8A"
+    font-size="96"
+    font-family="SF Mono, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+    letter-spacing="14"
+  >
+    FOUNDRY90
+  </text>
+</svg>

@@ -1,0 +1,17 @@
+<svg width="1200" height="700" viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="700" fill="#020617"/>
+  <rect x="0" y="0" width="1200" height="56" fill="#020617" stroke="#1e293b"/>
+  <text x="24" y="34" fill="#e5e7eb" font-size="16" font-family="system-ui">fmhub · Instruments</text>
+  <rect x="0" y="56" width="260" height="644" fill="#020617" stroke="#1e293b"/>
+  <text x="24" y="86" fill="#9ca3af" font-size="12" font-family="system-ui">INSTRUMENTS</text>
+  <rect x="260" y="56" width="940" height="644" fill="#020617"/>
+  <rect x="280" y="80" width="900" height="120" fill="#020617" stroke="#1f2937"/>
+  <rect x="280" y="220" width="280" height="100" fill="#020617" stroke="#1f2937"/>
+  <rect x="580" y="220" width="280" height="100" fill="#020617" stroke="#1f2937"/>
+  <rect x="880" y="220" width="300" height="100" fill="#020617" stroke="#1f2937"/>
+  <rect x="280" y="340" width="900" height="320" fill="#020617" stroke="#1f2937"/>
+  <text x="300" y="110" fill="#e5e7eb" font-size="22" font-family="system-ui">SPY</text>
+  <text x="340" y="110" fill="#9ca3af" font-size="12" font-family="system-ui">SPDR S&P 500 ETF Trust</text>
+  <text x="300" y="255" fill="#9ca3af" font-size="11" font-family="system-ui">Source</text>
+  <text x="300" y="375" fill="#e5e7eb" font-size="14" font-family="system-ui">LLM Insight (Overview, 30d)</text>
+</svg>

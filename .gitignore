@@ -1,72 +1,83 @@
-# --- General ---
+# -----------------------------
+# General
+# -----------------------------
 *.log
 *.tmp
 *.swp
-*.DS_Store
+*.out
+*.err
+.DS_Store
 Thumbs.db
+.logs/
+logs/
 
-# --- Environment & Secrets ---
+# -----------------------------
+# Environment & Secrets
+# -----------------------------
 .env
 .env.*
 !.env.example
 
-# --- Node / Next.js ---
+# -----------------------------
+# Node / Next.js
+# -----------------------------
 node_modules/
 .next/
-out/
 dist/
+out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-.vscode/
 
-# --- Rust ---
+# -----------------------------
+# Rust
+# -----------------------------
 target/
+**/target/
 Cargo.lock
 
-# --- Python ---
+# -----------------------------
+# Python
+# -----------------------------
 __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+*.pyc
 *.egg-info/
+.build/
 build/
 dist/
-*.pytest_cache/
 .venv/
 venv/
-*.coverage
 .cache/
+*.coverage
+*.pytest_cache/
 
-# --- Docker ---
+# -----------------------------
+# Docker
+# -----------------------------
 docker-data/
 *.pid
 
-# --- Postgres dumps ---
+# -----------------------------
+# Databases / Dumps
+# -----------------------------
 *.sql
 *.dump
-
-# --- Redis dumps ---
 dump.rdb
 
-# --- MacOS ---
-.DS_Store
-
-# --- JetBrains IDE ---
+# -----------------------------
+# IDEs
+# -----------------------------
 .idea/
-
-# --- VSCode ---
 .vscode/
 .history/
 
-# --- Logs ---
-logs/
-*.log
-*.out
-*.err
-
-# --- Compiled files ---
+# -----------------------------
+# Compiled / Binary Artifacts
+# -----------------------------
 *.o
 *.so
 *.a
