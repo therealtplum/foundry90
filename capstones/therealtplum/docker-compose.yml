@@ -24,7 +24,7 @@ services:
       - "6379:6379"
 
   # -------------------------------------------------------------------
-  # Rust API – Axum service (wired up later)
+  # Rust API – Axum service
   # -------------------------------------------------------------------
   api:
     build:
@@ -38,11 +38,13 @@ services:
       DATABASE_URL: postgres://app:app@db:5432/fmhub
       REDIS_URL: redis://redis:6379
       RUST_LOG: info
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: gpt-4.1-mini
     ports:
       - "3000:3000"
 
   # -------------------------------------------------------------------
-  # Python ETL – one-shot ETL jobs (wired up later)
+  # Python ETL – one-shot ETL jobs
   # -------------------------------------------------------------------
   etl:
     build:
@@ -53,24 +55,22 @@ services:
       - db
     environment:
       DATABASE_URL: postgres://app:app@db:5432/fmhub
-    # Example (later):
     # command: ["python", "-m", "etl.jobs.full_refresh"]
 
   # -------------------------------------------------------------------
   # Web – Next.js frontend
   # -------------------------------------------------------------------
-  web:
-    build:
-      context: ./apps/web
-      dockerfile: Dockerfile
-    container_name: fmhub_web
-    depends_on:
-      - api
-    environment:
-      NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
-    ports:
-      - "3001:3000"
-      # Browser hits http://localhost:3001 → Next.js → Rust API on :3000
+  # web:
+  #   build:
+  #     context: ./apps/web
+  #     dockerfile: Dockerfile
+  #   container_name: fmhub_web
+  #   depends_on:
+  #     - api
+  #   environment:
+  #     NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
+  #   ports:
+  #     - "3001:3000"
 
 volumes:
   db-data:
