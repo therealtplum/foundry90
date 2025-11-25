@@ -1,4 +1,3 @@
-// apps/web/components/capstones/FocusTickerStrip.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -9,7 +8,8 @@ import {
 
 /**
  * Static fallback focus universe.
- * Always bundled, so we show something even if fmhub-api is unreachable.
+ * This will always be available in the bundle, so Vercel / mobile
+ * will show *something* even if the live API is unreachable.
  */
 const STATIC_TICKERS: FocusTickerStripItem[] = [
   {
@@ -17,7 +17,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "NVDA",
     name: "Nvidia Corp",
     asset_class: "equity",
-    last_close_price: 182.55,
+    last_close_price: "182.55",
     short_insight: null,
     recent_insight: null,
   },
@@ -26,7 +26,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "SPY",
     name: "SPDR S&P 500 ETF Trust",
     asset_class: "equity",
-    last_close_price: 668.73,
+    last_close_price: "668.73",
     short_insight: null,
     recent_insight: null,
   },
@@ -35,7 +35,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "QQQ",
     name: "Invesco QQQ Trust, Series 1",
     asset_class: "equity",
-    last_close_price: 605.16,
+    last_close_price: "605.16",
     short_insight: null,
     recent_insight: null,
   },
@@ -44,7 +44,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "TSLA",
     name: "Tesla, Inc. Common Stock",
     asset_class: "equity",
-    last_close_price: 417.78,
+    last_close_price: "417.78",
     short_insight: null,
     recent_insight: null,
   },
@@ -53,7 +53,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "GOOGL",
     name: "Alphabet Inc. Class A",
     asset_class: "equity",
-    last_close_price: 318.58,
+    last_close_price: "318.58",
     short_insight: null,
     recent_insight: null,
   },
@@ -62,7 +62,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "GOOG",
     name: "Alphabet Inc. Class C",
     asset_class: "equity",
-    last_close_price: 318.47,
+    last_close_price: "318.47",
     short_insight: null,
     recent_insight: null,
   },
@@ -71,7 +71,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "META",
     name: "Meta Platforms, Inc. Class A",
     asset_class: "equity",
-    last_close_price: 613.05,
+    last_close_price: "613.05",
     short_insight: null,
     recent_insight: null,
   },
@@ -80,7 +80,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "AMD",
     name: "Advanced Micro Devices",
     asset_class: "equity",
-    last_close_price: 215.05,
+    last_close_price: "215.05",
     short_insight: null,
     recent_insight: null,
   },
@@ -89,7 +89,7 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "AVGO",
     name: "Broadcom Inc.",
     asset_class: "equity",
-    last_close_price: 377.96,
+    last_close_price: "377.96",
     short_insight: null,
     recent_insight: null,
   },
@@ -98,17 +98,17 @@ const STATIC_TICKERS: FocusTickerStripItem[] = [
     ticker: "AAPL",
     name: "Apple Inc.",
     asset_class: "equity",
-    last_close_price: 275.92,
+    last_close_price: "275.92",
     short_insight: null,
     recent_insight: null,
   },
 ];
 
 /**
- * Try to load the live focus universe; return null on any failure
- * so we can fall back to STATIC_TICKERS.
+ * Try to load the live focus universe from fmhub-api.
+ * Returns `null` if anything goes wrong so we can fall back to STATIC_TICKERS.
  */
-async function loadLive(limit = 80): Promise<FocusTickerStripItem[] | null> {
+async function loadLive(limit = 64): Promise<FocusTickerStripItem[] | null> {
   try {
     const data = await getFocusTickerStrip(limit);
     if (!data || data.length === 0) return null;
@@ -122,20 +122,22 @@ async function loadLive(limit = 80): Promise<FocusTickerStripItem[] | null> {
   }
 }
 
-function formatPrice(p: number | null): string {
-  if (p == null) return "";
-  return `$${p.toFixed(2)}`;
+function formatPrice(raw: string | null): string {
+  if (!raw) return "";
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return raw;
+  return n.toFixed(2);
 }
 
 export default function FocusTickerStrip() {
-  // Start with static so SSR + Vercel always show something.
+  // Start with static data so there's *always* something to render.
   const [items, setItems] = useState<FocusTickerStripItem[]>(STATIC_TICKERS);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const live = await loadLive(120);
+      const live = await loadLive(96); // best-effort override
       if (!cancelled && live) {
         setItems(live);
       }
@@ -146,15 +148,10 @@ export default function FocusTickerStrip() {
     };
   }, []);
 
-  // Limit what we actually put on-screen so it doesn’t become soup.
-  const MAX_ITEMS = 48;
-  const baseItems =
-    items.length > MAX_ITEMS ? items.slice(0, MAX_ITEMS) : items;
+  // Duplicate array so the marquee can loop seamlessly
+  const marqueeItems = [...items, ...items];
 
-  // Duplicate for seamless marquee
-  const marqueeItems = [...baseItems, ...baseItems];
-
-  // Split into 4 rows, alternating left/right
+  // Split into a few rows, alternating left/right
   const ROWS = 4;
   const perRow = Math.ceil(marqueeItems.length / ROWS);
   const rowChunks = Array.from({ length: ROWS }, (_, rowIndex) =>
@@ -163,45 +160,43 @@ export default function FocusTickerStrip() {
 
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* subtle CRT-ish background */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.22),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(0,0,0,0.9),_black)] opacity-80" />
-      <div className="pointer-events-none absolute inset-0 mix-blend-soft-light opacity-40 [background-image:repeating-linear-gradient(to_bottom,rgba(0,0,0,0)_0,rgba(0,0,0,0)_2px,rgba(16,185,129,0.12)_3px,rgba(0,0,0,0)_4px)]" />
+      {/* subtle background glow */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black via-black to-black" />
 
-      <div className="relative z-10 flex h-full flex-col justify-center gap-6 px-6">
+      <div className="relative z-10 flex flex-col justify-center gap-6 h-full px-6">
         {rowChunks.map((row, rowIndex) => (
           <div
             key={rowIndex}
-            className={`flex whitespace-nowrap gap-10 font-mono text-[18px] md:text-[22px] leading-tight text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.8)] ${
+            className={`flex whitespace-nowrap gap-8 font-mono text-emerald-400 text-[18px] leading-tight ${
               rowIndex % 2 === 0 ? "fr-ticker-left" : "fr-ticker-right"
             }`}
             style={{
-              animationDuration: rowIndex % 2 === 0 ? "26s" : "32s",
+              animationDuration: rowIndex % 2 === 0 ? "32s" : "40s",
             }}
           >
-            {row.map((item, i) => (
-              <span
-                key={`${item.instrument_id}-${i}`}
-                className="flex items-baseline gap-2"
-              >
-                <span className="font-bold text-emerald-300">
-                  {item.ticker}
+            {row.map((item, i) => {
+              const price = formatPrice(item.last_close_price);
+              return (
+                <span
+                  key={`${item.instrument_id}-${i}`}
+                  className="flex items-baseline gap-2"
+                >
+                  <span className="font-semibold">{item.ticker}</span>
+                  <span className="text-emerald-300/90">{item.name}</span>
+                  {price && (
+                    <span className="text-emerald-500">
+                      ${price}
+                    </span>
+                  )}
+                  <span className="mx-4 text-emerald-700">•</span>
                 </span>
-                <span className="max-w-[260px] truncate text-emerald-200/90">
-                  {item.name}
-                </span>
-                {item.last_close_price != null && (
-                  <span className="text-emerald-400">
-                    {formatPrice(item.last_close_price)}
-                  </span>
-                )}
-                <span className="mx-5 text-emerald-700">•</span>
-              </span>
-            ))}
+              );
+            })}
           </div>
         ))}
       </div>
 
-      {/* Local CSS-only animations so we don't touch globals.css */}
+      {/* Local CSS-only, no globals.css changes required */}
       <style jsx>{`
         @keyframes fr-ticker-left-anim {
           0% {

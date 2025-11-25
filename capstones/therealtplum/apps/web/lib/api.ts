@@ -34,7 +34,7 @@ export interface FocusTickerStripItem {
   ticker: string;
   name: string;
   asset_class: string;
-  last_close_price: string | null;   // was number | null → must be string
+  last_close_price: string | null;
   short_insight: string | null;
   recent_insight: string | null;
 }
