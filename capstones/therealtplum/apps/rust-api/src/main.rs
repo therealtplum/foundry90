@@ -5,18 +5,21 @@ use axum::{
     routing::get,
     Json, Router,
 };
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::json;
 use sqlx::{FromRow, PgPool};
-use std::{env, net::SocketAddr};
+use std::{env, net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
+/// Shared application state
 #[derive(Clone)]
 struct AppState {
     db_pool: PgPool,
+    chat_client: Option<ChatClient>,
 }
 
 #[derive(Serialize)]
@@ -34,7 +37,7 @@ struct InstrumentSummary {
     asset_class: String,
 }
 
-/// More detailed instrument view (you can extend this later)
+/// More detailed instrument view
 #[derive(Debug, Serialize, FromRow)]
 struct InstrumentDetail {
     id: i64,
@@ -58,16 +61,16 @@ struct NewsArticleDto {
     headline: String,
     summary: Option<String>,
     url: String,
-    published_at: chrono::DateTime<chrono::Utc>,
+    published_at: DateTime<Utc>,
 }
 
 /// Instrument insight record from DB
-#[derive(Debug, FromRow)]
+#[derive(Debug, Serialize, FromRow)]
 struct InstrumentInsightRecord {
-    _id: i64,
+    id: i64,
     content_markdown: String,
     model_name: Option<String>,
-    created_at: chrono::DateTime<chrono::Utc>,
+    created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,9 +80,141 @@ struct ListInstrumentsParams {
 }
 
 #[derive(Debug, Deserialize)]
+struct ListNewsParams {
+    limit: Option<i64>,
+    offset: Option<i64>,
+}
+
+#[derive(Debug, Deserialize)]
 struct InsightQueryParams {
     horizon_days: Option<i32>,
 }
+
+// --- Focus ticker strip model ---
+
+#[derive(Debug, Serialize, FromRow)]
+struct FocusTickerStripRow {
+    instrument_id: i64,
+    ticker: String,
+    name: String,
+    asset_class: String,
+    last_close_price: Option<f64>,
+    short_insight: Option<String>,
+    recent_insight: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FocusStripParams {
+    limit: Option<i64>,
+}
+
+// ---------------------------------------------------------------------
+// OpenAI chat client
+// ---------------------------------------------------------------------
+
+#[derive(Clone)]
+struct ChatClient {
+    http: Arc<reqwest::Client>,
+    api_key: String,
+    model: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatResponse {
+    choices: Vec<ChatChoice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatChoice {
+    message: ChatMessage,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatMessage {
+    content: String,
+}
+
+impl ChatClient {
+    fn from_env() -> Option<Self> {
+        let api_key = env::var("OPENAI_API_KEY").ok()?;
+        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4.1-mini".to_string());
+
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .expect("failed to build reqwest client");
+
+        Some(ChatClient {
+            http: Arc::new(http),
+            api_key,
+            model,
+        })
+    }
+
+    async fn generate_insight(
+        &self,
+        instrument: &InstrumentDetail,
+        kind: &str,
+        horizon_days: i32,
+    ) -> anyhow::Result<String> {
+        let system = match kind {
+            "overview" => "You are a financial research assistant. Produce a concise overview of the instrument, including what it is, key characteristics, and why it might be interesting to an event-driven trader.",
+            "recent" => "You are a financial research assistant. Summarize the most important recent developments, news, and catalysts for this instrument over the requested horizon.",
+            _ => "You are a financial research assistant. Provide concise, relevant information about the instrument.",
+        };
+
+        let prompt = format!(
+            "Instrument: {name} ({ticker})\n\
+             Asset class: {asset_class}\n\
+             Exchange: {exchange}\n\
+             Region: {region:?}\n\
+             Country: {country:?}\n\
+             Horizon: last {horizon_days} days.\n\n\
+             Write a short, focused {kind} insight, suitable for a dashboard. \
+             Use markdown, keep it under ~300 words, and avoid fluff.",
+            name = instrument.name,
+            ticker = instrument.ticker,
+            asset_class = instrument.asset_class,
+            exchange = instrument.exchange.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+            region = instrument.region,
+            country = instrument.country_code,
+        );
+
+        let body = json!({
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 500,
+            "temperature": 0.3
+        });
+
+        let resp = self
+            .http
+            .post("https://api.openai.com/v1/chat/completions")
+            .bearer_auth(&self.api_key)
+            .json(&body)
+            .send()
+            .await?
+            .error_for_status()?
+            .json::<ChatResponse>()
+            .await?;
+
+        let text = resp
+            .choices
+            .into_iter()
+            .next()
+            .map(|c| c.message.content)
+            .unwrap_or_else(|| "No response from model.".to_string());
+
+        Ok(text)
+    }
+}
+
+// ---------------------------------------------------------------------
+// main
+// ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -102,7 +237,15 @@ async fn main() -> anyhow::Result<()> {
     let db_pool = PgPool::connect(&database_url).await?;
     info!("Connected to Postgres");
 
-    let state = AppState { db_pool };
+    let chat_client = ChatClient::from_env();
+    if chat_client.is_none() {
+        info!("OPENAI_API_KEY not set; insight generation will fall back to cache-only.");
+    }
+
+    let state = AppState {
+        db_pool,
+        chat_client,
+    };
 
     let app = Router::new()
         .route("/health", get(health_handler))
@@ -113,6 +256,7 @@ async fn main() -> anyhow::Result<()> {
             "/instruments/{id}/insights/{kind}",
             get(get_instrument_insight_handler),
         )
+        .route("/focus/ticker-strip", get(get_focus_ticker_strip))
         .with_state(state);
 
     let port: u16 = env::var("PORT")
@@ -223,11 +367,7 @@ async fn get_instrument_handler(
     .await;
 
     match result {
-        Ok(Some(instr)) => {
-            // We wrap in `json!` so all branches return Json<Value>
-            let body = json!(instr);
-            (StatusCode::OK, Json(body))
-        }
+        Ok(Some(instr)) => (StatusCode::OK, Json(json!(instr))),
         Ok(None) => (
             StatusCode::NOT_FOUND,
             Json(json!({"error": "not_found"})),
@@ -245,7 +385,11 @@ async fn get_instrument_handler(
 async fn list_instrument_news_handler(
     State(state): State<AppState>,
     Path(id): Path<i64>,
+    Query(params): Query<ListNewsParams>,
 ) -> impl IntoResponse {
+    let limit = params.limit.unwrap_or(50).clamp(1, 500);
+    let offset = params.offset.unwrap_or(0).max(0);
+
     let result = sqlx::query_as::<_, NewsArticleDto>(
         r#"
         SELECT
@@ -259,17 +403,20 @@ async fn list_instrument_news_handler(
         FROM news_articles
         WHERE instrument_id = $1
         ORDER BY published_at DESC
-        LIMIT 50
+        LIMIT $2
+        OFFSET $3
         "#,
     )
     .bind(id)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(&state.db_pool)
     .await;
 
     match result {
         Ok(rows) => (StatusCode::OK, Json(rows)),
         Err(err) => {
-            error!("Failed to fetch news for instrument {id}: {err}");
+            error!("Failed to list news for instrument {id}: {err}");
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(Vec::<NewsArticleDto>::new()),
@@ -284,6 +431,7 @@ async fn get_instrument_insight_handler(
     Query(params): Query<InsightQueryParams>,
 ) -> impl IntoResponse {
     let horizon_days = params.horizon_days.unwrap_or(30);
+    let kind = kind.to_lowercase();
 
     // 1. Try latest cached insight from DB
     let cached = sqlx::query_as::<_, InstrumentInsightRecord>(
@@ -296,41 +444,51 @@ async fn get_instrument_insight_handler(
         FROM instrument_insights
         WHERE instrument_id = $1
           AND insight_type = $2
-          AND horizon_days = $3
         ORDER BY created_at DESC
         LIMIT 1
         "#,
     )
     .bind(id)
     .bind(&kind)
-    .bind(horizon_days)
     .fetch_optional(&state.db_pool)
     .await;
 
     match cached {
-        Ok(Some(record)) => {
-            let payload = json!({
-                "source": "cache",
-                "instrument_id": id,
-                "insight_type": kind,
-                "horizon_days": horizon_days,
-                "model": record.model_name,
-                "created_at": record.created_at,
-                "content_markdown": record.content_markdown,
-            });
-            return (StatusCode::OK, Json(payload));
+        Ok(Some(rec)) => {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "source": "cache",
+                    "insight": rec,
+                })),
+            )
         }
         Ok(None) => {
-            // Fall through to generate below
+            info!("No cached insight for instrument_id={id}, kind={kind}; attempting LLM generation.");
         }
         Err(err) => {
-            error!("Failed to load cached insight for {id}: {err}");
-            // Fall through to try generating anyway
+            error!("Failed to query cached insight for {id}, kind={kind}: {err}");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "internal_error"})),
+            );
         }
     }
 
-    // 2. Load minimal context: instrument + recent news titles
-    let instrument = sqlx::query_as::<_, InstrumentDetail>(
+    // 2. If no cache, we may generate via LLM (if configured)
+    let chat_client = match &state.chat_client {
+        Some(c) => c.clone(),
+        None => {
+            info!("chat_client not configured; cannot generate new insight.");
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(json!({"error": "llm_unavailable"})),
+            );
+        }
+    };
+
+    // Fetch instrument details for context
+    let instrument = match sqlx::query_as::<_, InstrumentDetail>(
         r#"
         SELECT
             id,
@@ -349,18 +507,17 @@ async fn get_instrument_insight_handler(
     )
     .bind(id)
     .fetch_optional(&state.db_pool)
-    .await;
-
-    let instrument = match instrument {
-        Ok(Some(inst)) => inst,
+    .await
+    {
+        Ok(Some(instr)) => instr,
         Ok(None) => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(json!({"error": "instrument_not_found"})),
+                Json(json!({"error": "not_found"})),
             );
         }
         Err(err) => {
-            error!("Failed to load instrument {id} for insight: {err}");
+            error!("Failed to fetch instrument for insight generation {id}: {err}");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({"error": "internal_error"})),
@@ -368,65 +525,14 @@ async fn get_instrument_insight_handler(
         }
     };
 
-    let news_rows: Vec<NewsArticleDto> = sqlx::query_as::<_, NewsArticleDto>(
-        r#"
-        SELECT
-            id,
-            source,
-            publisher,
-            headline,
-            summary,
-            url,
-            published_at
-        FROM news_articles
-        WHERE instrument_id = $1
-        ORDER BY published_at DESC
-        LIMIT 10
-        "#,
-    )
-    .bind(id)
-    .fetch_all(&state.db_pool)
-    .await
-    .unwrap_or_else(|err| {
-        error!("Failed to load news for insight generation, id={id}: {err}");
-        Vec::new()
-    });
-
-    // Build JSON context using serde_json::Map<String, Value>
-    let mut ctx: Map<String, Value> = Map::new();
-    ctx.insert(
-        "instrument".to_string(),
-        serde_json::to_value(&instrument).unwrap(),
-    );
-    ctx.insert(
-        "news".to_string(),
-        serde_json::to_value(&news_rows).unwrap(),
-    );
-    ctx.insert("horizon_days".to_string(), json!(horizon_days));
-    ctx.insert("insight_type".to_string(), json!(&kind));
-
-    let raw_context = Value::Object(ctx);
-
-    // 3. Call LLM (OpenAI) to generate insight
-    let api_key = match env::var("OPENAI_API_KEY") {
-        Ok(k) if !k.is_empty() => k,
-        _ => {
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"error": "llm_not_configured"})),
-            );
-        }
-    };
-    let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4.1-mini".to_string());
-
-    let context_str = serde_json::to_string_pretty(&raw_context).unwrap_or_default();
-
-    let llm_result = llm::generate_instrument_insight(&api_key, &model, &kind, &context_str).await;
-
-    let content_markdown = match llm_result {
-        Ok(text) => text,
+    // Call LLM
+    let text = match chat_client
+        .generate_insight(&instrument, &kind, horizon_days)
+        .await
+    {
+        Ok(t) => t,
         Err(err) => {
-            error!("LLM call failed for instrument {id}: {err}");
+            error!("LLM generation failed for instrument_id={id}, kind={kind}: {err}");
             return (
                 StatusCode::BAD_GATEWAY,
                 Json(json!({"error": "llm_error"})),
@@ -434,155 +540,106 @@ async fn get_instrument_insight_handler(
         }
     };
 
-    // 4. Persist new insight to DB
-    let inserted = sqlx::query_scalar::<_, i64>(
+    // Persist new insight
+    let model_name = Some(chat_client.model.clone());
+    let inserted = sqlx::query_as::<_, InstrumentInsightRecord>(
         r#"
         INSERT INTO instrument_insights (
             instrument_id,
             insight_type,
-            horizon_days,
-            context_hash,
+            content_markdown,
+            model_name
+        )
+        VALUES ($1, $2, $3, $4)
+        RETURNING
+            id,
             content_markdown,
             model_name,
-            raw_context
-        )
-        VALUES ($1, $2, $3, NULL, $4, $5, $6)
-        RETURNING id
+            created_at
         "#,
     )
     .bind(id)
     .bind(&kind)
-    .bind(horizon_days)
-    .bind(&content_markdown)
-    .bind(&model)
-    .bind(&raw_context)
+    .bind(&text)
+    .bind(&model_name)
     .fetch_one(&state.db_pool)
     .await;
 
-    let insight_id = match inserted {
-        Ok(i) => i,
-        Err(err) => {
-            error!("Failed to persist new insight for instrument {id}: {err}");
-            let payload = json!({
+    match inserted {
+        Ok(rec) => (
+            StatusCode::OK,
+            Json(json!({
                 "source": "llm",
-                "instrument_id": id,
-                "insight_type": kind,
-                "horizon_days": horizon_days,
-                "model": model,
-                "content_markdown": content_markdown,
-            });
-            return (StatusCode::OK, Json(payload));
+                "insight": rec,
+            })),
+        ),
+        Err(err) => {
+            error!("Failed to persist generated insight for {id}, kind={kind}: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "internal_error"})),
+            )
         }
-    };
-
-    let payload = json!({
-        "source": "llm",
-        "instrument_id": id,
-        "insight_type": kind,
-        "horizon_days": horizon_days,
-        "model": model,
-        "insight_id": insight_id,
-        "content_markdown": content_markdown,
-    });
-
-    (StatusCode::OK, Json(payload))
+    }
 }
 
-// ---------------------------------------------------------------------
-// LLM client (OpenAI chat completions v1)
-// ---------------------------------------------------------------------
+async fn get_focus_ticker_strip(
+    State(state): State<AppState>,
+    Query(params): Query<FocusStripParams>,
+) -> impl IntoResponse {
+    let limit = params.limit.unwrap_or(50).clamp(1, 500);
 
-mod llm {
-    use anyhow::Result;
-    use reqwest::Client;
-    use serde::{Deserialize, Serialize};
-    use tracing::info;
+    let result = sqlx::query_as::<_, FocusTickerStripRow>(
+        r#"
+        WITH latest_focus AS (
+            SELECT MAX(as_of_date) AS as_of_date
+            FROM instrument_focus_universe
+        )
+        SELECT
+            fu.instrument_id,
+            i.ticker,
+            i.name,
+            i.asset_class::text AS asset_class,
+            fu.last_close_price,
+            overview_insight.content_markdown AS short_insight,
+            recent_insight.content_markdown AS recent_insight
+        FROM instrument_focus_universe fu
+        JOIN latest_focus lf
+          ON fu.as_of_date = lf.as_of_date
+        JOIN instruments i
+          ON i.id = fu.instrument_id
+        LEFT JOIN LATERAL (
+            SELECT content_markdown
+            FROM instrument_insights ii
+            WHERE ii.instrument_id = fu.instrument_id
+              AND ii.insight_type = 'overview'
+            ORDER BY ii.created_at DESC
+            LIMIT 1
+        ) AS overview_insight ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT content_markdown
+            FROM instrument_insights ii
+            WHERE ii.instrument_id = fu.instrument_id
+              AND ii.insight_type = 'recent'
+            ORDER BY ii.created_at DESC
+            LIMIT 1
+        ) AS recent_insight ON TRUE
+        ORDER BY fu.activity_rank_global ASC
+        LIMIT $1
+        "#,
+    )
+    .bind(limit)
+    .fetch_all(&state.db_pool)
+    .await;
 
-    #[derive(Debug, Serialize)]
-    struct ChatMessage {
-        role: String,
-        content: String,
-    }
-
-    #[derive(Debug, Serialize)]
-    struct ChatRequest {
-        model: String,
-        messages: Vec<ChatMessage>,
-        max_tokens: Option<u32>,
-        temperature: Option<f32>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct ChatResponse {
-        choices: Vec<ChatChoice>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct ChatChoice {
-        message: ChatMessageResponse,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct ChatMessageResponse {
-        content: String,
-    }
-
-    pub async fn generate_instrument_insight(
-        api_key: &str,
-        model: &str,
-        kind: &str,
-        context_json: &str,
-    ) -> Result<String> {
-        let client = Client::new();
-
-        let system_prompt = format!(
-            "You are a concise financial analyst. Generate a clear, markdown-formatted summary for a \
-             single instrument, based ONLY on the provided JSON context. Insight type: {kind}. \
-             Avoid speculation and do not invent data."
-        );
-
-        let user_prompt = format!(
-            "Context JSON for this instrument:\n\n{}\n\n\
-             Please provide a short, structured explanation (headings, bullet points) that explains \
-             what's going on and any notable recent developments.",
-            context_json
-        );
-
-        let req_body = ChatRequest {
-            model: model.to_string(),
-            messages: vec![
-                ChatMessage {
-                    role: "system".to_string(),
-                    content: system_prompt,
-                },
-                ChatMessage {
-                    role: "user".to_string(),
-                    content: user_prompt,
-                },
-            ],
-            max_tokens: Some(600),
-            temperature: Some(0.2),
-        };
-
-        info!("Calling OpenAI model={model} for instrument insight…");
-
-        let resp = client
-            .post("https://api.openai.com/v1/chat/completions")
-            .bearer_auth(api_key)
-            .json(&req_body)
-            .send()
-            .await?
-            .error_for_status()?
-            .json::<ChatResponse>()
-            .await?;
-
-        let text = resp
-            .choices
-            .into_iter()
-            .next()
-            .map(|c| c.message.content)
-            .unwrap_or_else(|| "No response from model.".to_string());
-
-        Ok(text)
+    match result {
+        Ok(rows) => (StatusCode::OK, Json(rows)),
+        Err(err) => {
+            error!("Failed to fetch focus ticker strip: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(Vec::<FocusTickerStripRow>::new()),
+            )
+        }
     }
 }

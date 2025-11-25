@@ -1,11 +1,21 @@
 import os
 import json
 import hashlib
+import logging
 import requests
 import psycopg2
 
-POLYGON_API_KEY = os.environ["POLYGON_API_KEY"]
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+if not POLYGON_API_KEY:
+    raise RuntimeError("POLYGON_API_KEY environment variable is required for polygon_instruments ETL")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[polygon_instruments] %(message)s",
+)
+log = logging.getLogger(__name__)
 
 
 def get_conn():
@@ -14,7 +24,7 @@ def get_conn():
 
 def normalize_asset_class(market: str | None) -> str | None:
     """
-    Map Polygon's `market` field into our asset_class_enum.
+    Map Polygon 'market' to our internal asset_class values.
     """
     if market is None:
         return None
@@ -22,19 +32,23 @@ def normalize_asset_class(market: str | None) -> str | None:
     market = market.lower()
     mapping = {
         "stocks": "equity",
+        "crypto": "crypto",
+        "fx": "fx",
         "otc": "equity",
         "indices": "index",
         "funds": "etf",
-        "crypto": "crypto",
-        "fx": "fx",
     }
-    return mapping.get(market, "other")
+    return mapping.get(market, market)
 
+
+# ----------------------------------------------------------------------
+# Compute hash of relevant fields to detect actual changes
+# ----------------------------------------------------------------------
 
 def compute_payload_hash(ticker: dict) -> str:
     """
-    Hash the "shape" of the upstream record so we can cheaply tell
-    whether anything material changed since last time.
+    Compute a stable hash of relevant reference fields so we only update
+    instruments when something material changes.
     """
     relevant = {
         "ticker": ticker.get("ticker"),
@@ -49,111 +63,121 @@ def compute_payload_hash(ticker: dict) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-def upsert_instrument(cur, t: dict) -> None:
-    """
-    Idempotent upsert of a single Polygon ticker into `instruments`.
-    Falls back to ticker as `name` when Polygon omits it.
-    """
+# ----------------------------------------------------------------------
+# Upsert with change detection (no ON CONFLICT)
+# ----------------------------------------------------------------------
 
+def upsert_instrument(cur, t: dict):
     ticker = t.get("ticker")
     if not ticker:
-        # Should be extremely rare; just skip garbage rows.
         return
 
-    # 🚑 THIS IS THE FIX: never allow name to be NULL
-    raw_name = t.get("name")
-    name = raw_name if (raw_name and raw_name.strip()) else ticker
+    name = t.get("name") or ticker
+    market = t.get("market")
+    asset_class = normalize_asset_class(market)
 
-    asset_class = normalize_asset_class(t.get("market")) or "other"
-
-    exchange = t.get("primary_exchange")
+    exchange = t.get("primary_exchange") or t.get("exchange") or "UNKNOWN"
     currency_code = t.get("currency_name") or "USD"
-    locale = (t.get("locale") or "").lower()
-    region = locale or None
-    country_code = "US" if locale in ("us", "usa") else None
 
-    primary_source = "polygon"
-    external_symbol = ticker
+    locale = t.get("locale")
+    region = (locale or "us").upper()
+    country_code = "US" if region == "US" else None
 
-    external_ref = {
-        "polygon_ticker": ticker,
-        "type": t.get("type"),
-        "market": t.get("market"),
-        "primary_exchange": t.get("primary_exchange"),
-        "locale": t.get("locale"),
-        "cik": t.get("cik"),
-        "composite_figi": t.get("composite_figi"),
-    }
+    primary_source = "polygon_reference"
+    status = "active" if t.get("active", True) else "inactive"
 
-    status = "active" if t.get("active") else "inactive"
     payload_hash = compute_payload_hash(t)
 
-    sql = """
-        INSERT INTO instruments (
-            ticker,
-            name,
-            asset_class,
-            exchange,
-            currency_code,
-            region,
-            country_code,
-            primary_source,
-            external_symbol,
-            external_ref,
-            status,
-            source_last_seen_at,
-            source_payload_hash
-        )
-        VALUES (
-            %s,  -- ticker
-            %s,  -- name (never NULL)
-            %s,  -- asset_class
-            %s,  -- exchange
-            %s,  -- currency_code
-            %s,  -- region
-            %s,  -- country_code
-            %s,  -- primary_source
-            %s,  -- external_symbol
-            %s,  -- external_ref (JSONB)
-            %s,  -- status
-            NOW(),
-            %s   -- source_payload_hash
-        )
-        ON CONFLICT (ticker, asset_class, primary_source) DO UPDATE
-        SET
-            name                = EXCLUDED.name,
-            asset_class         = EXCLUDED.asset_class,
-            exchange            = EXCLUDED.exchange,
-            currency_code       = EXCLUDED.currency_code,
-            region              = EXCLUDED.region,
-            country_code        = EXCLUDED.country_code,
-            primary_source      = EXCLUDED.primary_source,
-            external_symbol     = EXCLUDED.external_symbol,
-            external_ref        = EXCLUDED.external_ref,
-            status              = EXCLUDED.status,
-            source_last_seen_at = NOW(),
-            source_payload_hash = EXCLUDED.source_payload_hash
-        WHERE instruments.source_payload_hash IS DISTINCT FROM EXCLUDED.source_payload_hash;
-    """
-
+    # 1) Check existing hash for (ticker, primary_source)
     cur.execute(
-        sql,
-        (
-            ticker,
-            name,
-            asset_class,
-            exchange,
-            currency_code,
-            region,
-            country_code,
-            primary_source,
-            external_symbol,
-            json.dumps(external_ref),
-            status,
-            payload_hash,
-        ),
+        """
+        SELECT source_payload_hash
+        FROM instruments
+        WHERE ticker = %s
+          AND primary_source = %s
+        """,
+        (ticker, primary_source),
     )
+    row = cur.fetchone()
 
+    if row is not None:
+        existing_hash = row[0]
+        # If nothing changed, skip
+        if existing_hash == payload_hash:
+            return
+
+        # 2) UPDATE existing row
+        cur.execute(
+            """
+            UPDATE instruments
+            SET
+                name                = %s,
+                asset_class         = %s,
+                exchange            = %s,
+                currency_code       = %s,
+                region              = %s,
+                country_code        = %s,
+                primary_source      = %s,
+                status              = %s,
+                source_last_seen_at = NOW(),
+                source_payload_hash = %s
+            WHERE ticker = %s
+              AND primary_source = %s
+            """,
+            (
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                payload_hash,
+                ticker,
+                primary_source,
+            ),
+        )
+    else:
+        # 3) INSERT new row
+        cur.execute(
+            """
+            INSERT INTO instruments (
+                ticker,
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                source_last_seen_at,
+                source_payload_hash
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
+            """,
+            (
+                ticker,
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                payload_hash,
+            ),
+        )
+
+
+# ----------------------------------------------------------------------
+# Fetch all tickers from Polygon
+# ----------------------------------------------------------------------
+
+# TODO: consider a shared Polygon client module for pagination/backoff logic
+#       so polygon_instruments + instrument_focus_universe don’t diverge.
 
 def fetch_all_tickers():
     base_url = "https://api.polygon.io/v3/reference/tickers"
@@ -174,16 +198,10 @@ def fetch_all_tickers():
     try:
         while True:
             if next_url == base_url:
-                print(
-                    f"[polygon_instruments] Fetching page {page}: {base_url} "
-                    f"params={params}"
-                )
+                log.info(f"Fetching page {page}: {base_url} params={params}")
                 resp = requests.get(base_url, params=params, timeout=30)
             else:
-                print(
-                    f"[polygon_instruments] Fetching page {page}: {next_url} "
-                    f"(apiKey only)"
-                )
+                log.info(f"Fetching page {page}: {next_url} (apiKey only)")
                 resp = requests.get(
                     next_url,
                     params={"apiKey": POLYGON_API_KEY},
@@ -193,11 +211,11 @@ def fetch_all_tickers():
             resp.raise_for_status()
             data = resp.json()
 
-            results = data.get("results", [])
-            print(f"[polygon_instruments]  Received {len(results)} instruments")
+            results = data.get("results", []) or []
+            log.info(f"Received {len(results)} instruments on page {page}")
 
-            for row in results:
-                upsert_instrument(cur, row)
+            for t in results:
+                upsert_instrument(cur, t)
                 updates += 1
 
             conn.commit()
@@ -208,7 +226,8 @@ def fetch_all_tickers():
 
             page += 1
 
-        print(f"[polygon_instruments] Done. Upserted/checked ~{updates} instruments.")
+        log.info(f"Done. Upserted/checked ~{updates} instruments.")
+
     finally:
         cur.close()
         conn.close()
