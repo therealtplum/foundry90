@@ -141,7 +141,7 @@ body.f90-body {
 
 .f90-hero-meta {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 8px;
   align-items: center;
   margin-top: 4px;
