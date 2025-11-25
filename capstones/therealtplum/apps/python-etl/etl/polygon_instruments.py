@@ -3,7 +3,6 @@ import json
 import hashlib
 import requests
 import psycopg2
-from psycopg2.extras import execute_values
 
 POLYGON_API_KEY = os.environ["POLYGON_API_KEY"]
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
@@ -14,25 +13,29 @@ def get_conn():
 
 
 def normalize_asset_class(market: str | None) -> str | None:
+    """
+    Map Polygon's `market` field into our asset_class_enum.
+    """
     if market is None:
         return None
 
     market = market.lower()
     mapping = {
         "stocks": "equity",
-        "crypto": "crypto",
-        "fx": "fx",
         "otc": "equity",
         "indices": "index",
         "funds": "etf",
+        "crypto": "crypto",
+        "fx": "fx",
     }
-    return mapping.get(market, market)
+    return mapping.get(market, "other")
 
 
-# ----------------------------------------------------------------------
-# NEW: Compute hash of relevant fields to detect actual changes
-# ----------------------------------------------------------------------
 def compute_payload_hash(ticker: dict) -> str:
+    """
+    Hash the "shape" of the upstream record so we can cheaply tell
+    whether anything material changed since last time.
+    """
     relevant = {
         "ticker": ticker.get("ticker"),
         "name": ticker.get("name"),
@@ -46,25 +49,43 @@ def compute_payload_hash(ticker: dict) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
 
-# ----------------------------------------------------------------------
-# Upsert with change detection
-# ----------------------------------------------------------------------
-def upsert_instrument(cur, t: dict):
+def upsert_instrument(cur, t: dict) -> None:
+    """
+    Idempotent upsert of a single Polygon ticker into `instruments`.
+    Falls back to ticker as `name` when Polygon omits it.
+    """
+
     ticker = t.get("ticker")
-    name = t.get("name") or ticker
-    market = t.get("market")
-    asset_class = normalize_asset_class(market)
+    if not ticker:
+        # Should be extremely rare; just skip garbage rows.
+        return
 
-    exchange = t.get("primary_exchange") or t.get("exchange") or "UNKNOWN"
+    # 🚑 THIS IS THE FIX: never allow name to be NULL
+    raw_name = t.get("name")
+    name = raw_name if (raw_name and raw_name.strip()) else ticker
+
+    asset_class = normalize_asset_class(t.get("market")) or "other"
+
+    exchange = t.get("primary_exchange")
     currency_code = t.get("currency_name") or "USD"
+    locale = (t.get("locale") or "").lower()
+    region = locale or None
+    country_code = "US" if locale in ("us", "usa") else None
 
-    locale = t.get("locale")
-    region = (locale or "us").upper()
-    country_code = "US" if region == "US" else None
+    primary_source = "polygon"
+    external_symbol = ticker
 
-    primary_source = "polygon_reference"
-    status = "active" if t.get("active", True) else "inactive"
+    external_ref = {
+        "polygon_ticker": ticker,
+        "type": t.get("type"),
+        "market": t.get("market"),
+        "primary_exchange": t.get("primary_exchange"),
+        "locale": t.get("locale"),
+        "cik": t.get("cik"),
+        "composite_figi": t.get("composite_figi"),
+    }
 
+    status = "active" if t.get("active") else "inactive"
     payload_hash = compute_payload_hash(t)
 
     sql = """
@@ -77,12 +98,29 @@ def upsert_instrument(cur, t: dict):
             region,
             country_code,
             primary_source,
+            external_symbol,
+            external_ref,
             status,
             source_last_seen_at,
             source_payload_hash
         )
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
-        ON CONFLICT (ticker) DO UPDATE SET
+        VALUES (
+            %s,  -- ticker
+            %s,  -- name (never NULL)
+            %s,  -- asset_class
+            %s,  -- exchange
+            %s,  -- currency_code
+            %s,  -- region
+            %s,  -- country_code
+            %s,  -- primary_source
+            %s,  -- external_symbol
+            %s,  -- external_ref (JSONB)
+            %s,  -- status
+            NOW(),
+            %s   -- source_payload_hash
+        )
+        ON CONFLICT (ticker, asset_class, primary_source) DO UPDATE
+        SET
             name                = EXCLUDED.name,
             asset_class         = EXCLUDED.asset_class,
             exchange            = EXCLUDED.exchange,
@@ -90,11 +128,12 @@ def upsert_instrument(cur, t: dict):
             region              = EXCLUDED.region,
             country_code        = EXCLUDED.country_code,
             primary_source      = EXCLUDED.primary_source,
+            external_symbol     = EXCLUDED.external_symbol,
+            external_ref        = EXCLUDED.external_ref,
             status              = EXCLUDED.status,
             source_last_seen_at = NOW(),
             source_payload_hash = EXCLUDED.source_payload_hash
-        WHERE
-            instruments.source_payload_hash IS DISTINCT FROM EXCLUDED.source_payload_hash;
+        WHERE instruments.source_payload_hash IS DISTINCT FROM EXCLUDED.source_payload_hash;
     """
 
     cur.execute(
@@ -108,15 +147,14 @@ def upsert_instrument(cur, t: dict):
             region,
             country_code,
             primary_source,
+            external_symbol,
+            json.dumps(external_ref),
             status,
             payload_hash,
         ),
     )
 
 
-# ----------------------------------------------------------------------
-# Fetch all tickers (same as your version, unchanged)
-# ----------------------------------------------------------------------
 def fetch_all_tickers():
     base_url = "https://api.polygon.io/v3/reference/tickers"
     params = {
@@ -158,8 +196,8 @@ def fetch_all_tickers():
             results = data.get("results", [])
             print(f"[polygon_instruments]  Received {len(results)} instruments")
 
-            for t in results:
-                upsert_instrument(cur, t)
+            for row in results:
+                upsert_instrument(cur, row)
                 updates += 1
 
             conn.commit()
@@ -171,7 +209,6 @@ def fetch_all_tickers():
             page += 1
 
         print(f"[polygon_instruments] Done. Upserted/checked ~{updates} instruments.")
-
     finally:
         cur.close()
         conn.close()
