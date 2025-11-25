@@ -34,7 +34,7 @@ export interface FocusTickerStripItem {
   ticker: string;
   name: string;
   asset_class: string;
-  last_close_price: number | null;
+  last_close_price: string | null;   // was number | null → must be string
   short_insight: string | null;
   recent_insight: string | null;
 }
@@ -79,6 +79,6 @@ export async function getInstrumentOverviewInsight(
   );
 }
 
-export async function getFocusTickerStrip(): Promise<FocusTickerStripItem[]> {
-  return apiGet<FocusTickerStripItem[]>("/focus/ticker-strip");
+export async function getFocusTickerStrip(limit: number = 50): Promise<FocusTickerStripItem[]> {
+  return apiGet<FocusTickerStripItem[]>(`/focus/ticker-strip?limit=${limit}`);
 }

@@ -1,6 +1,6 @@
 // apps/web/app/page.tsx
+
 import Link from "next/link";
-import FocusTickerStrip from "@/components/capstones/FocusTickerStrip";
 
 export default function HomePage() {
   return (
@@ -8,9 +8,9 @@ export default function HomePage() {
       {/* Hero */}
       <section className="f90-hero">
         <div className="f90-hero-inner">
+
           <h1 className="f90-hero-title">
-            Foundry90
-            <span className="f90-hero-title-accent">_</span>
+            <span className="f90-type">Foundry90_</span>
           </h1>
 
           <p className="f90-hero-subtitle">
@@ -19,15 +19,15 @@ export default function HomePage() {
           </p>
 
           <div className="f90-hero-actions">
-            <Link href="#capstones" className="f90-btn f90-btn-primary">
+            <Link href="capstones" className="f90-btn f90-btn-primary">
               Explore capstones
             </Link>
-            <span className="f90-hero-secondary-note">Capstones in alpha</span>
           </div>
 
           <div className="f90-hero-meta">
-            <span>Rust · Python · Next.js · Postgres · Swift</span>
+            <span>Rust · Python · Next.js · Postgres · SwiftUI · LLM</span>
             <span className="f90-dot" />
+            <span>90 days is all it takes</span>
           </div>
         </div>
 
@@ -39,25 +39,12 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Capstones – COMING SOON landing */}
-      <section id="capstones" className="f90-capstones-section">
-        <header className="f90-capstones-header">
-          <h2 className="f90-capstones-title">Capstones</h2>
-          <p className="f90-capstones-subtitle">
-            A focused universe of high-signal tickers, with LLM analyst
-            overlays.
-          </p>
-        </header>
-
-        <FocusTickerStrip />
-      </section>
-
       {/* Footer */}
       <footer className="f90-footer">
         <div className="f90-footer-right">
           <a
             href="https://github.com/therealtplum/foundry90/"
-            className="f90-link"
+            className="f90-footer-link"
           >
             foundry90 on GitHub
           </a>

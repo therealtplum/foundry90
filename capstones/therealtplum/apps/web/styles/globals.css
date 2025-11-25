@@ -235,7 +235,7 @@ body.f90-body {
   font-size: 28px;
   font-weight: 600;
   margin-bottom: 24px;
-  color: var(--f90-text-bold);
+  color: var(--f90-text);
 }
 
 /* Footer */
@@ -317,7 +317,12 @@ body.f90-body {
   position: relative;
   overflow: hidden;
   min-height: 50vh;
-  background: radial-gradient(circle at top left, #0b2216 0, #050608 55%, #000000 100%);
+  background: radial-gradient(
+    circle at top left,
+    #0b2216 0,
+    #050608 55%,
+    #000000 100%
+  );
   border-top: 1px solid rgba(67, 255, 138, 0.12);
   border-bottom: 1px solid rgba(67, 255, 138, 0.12);
 }
@@ -348,63 +353,107 @@ body.f90-body {
   color: var(--f90-text-soft, #9ca3af);
 }
 
+/* ===================================================================== */
+/*  FULL-SCREEN FMHUB BOARD + NEON TICKER STRIP                          */
+/* ===================================================================== */
+
+/* Root wrappers for the capstones board page */
+
+.fmhub-board-root {
+  min-height: 100vh;
+  background: #000000;
+  color: #a7f3c5;
+  position: relative;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.fmhub-board-status {
+  min-height: 100vh;
+  background: #000000;
+  color: #43ff8a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
 /* Ticker background */
+
 .f90-ticker-strip {
   position: absolute;
   inset: 0;
   z-index: 0;
-  opacity: 0.28;
-  pointer-events: auto; /* needed for hover to work */
+  opacity: 0.95;
+  pointer-events: auto; /* needed for hover pause */
 }
+
+/* Each row is absolutely positioned and scrolls horizontally */
 
 .f90-ticker-row {
   display: inline-flex;
   white-space: nowrap;
-  gap: 16px;
-  padding: 8px 0;
+  gap: 18px;
+  padding: 6px 0;
   position: absolute;
   left: -50%;
   right: -50%;
 }
 
+/* Alternate directions + durations */
+
 .f90-ticker-row-left {
-  animation: f90-scroll-left 40s linear infinite;
+  animation: f90-scroll-left 28s linear infinite;
 }
 
 .f90-ticker-row-right {
-  animation: f90-scroll-right 52s linear infinite;
+  animation: f90-scroll-right 34s linear infinite;
 }
 
-/* Stagger rows vertically */
+/* Six rows, staggered vertically */
+
 .f90-ticker-row:nth-child(1) {
-  top: 15%;
+  top: 10%;
 }
 .f90-ticker-row:nth-child(2) {
-  top: 35%;
+  top: 25%;
 }
 .f90-ticker-row:nth-child(3) {
-  top: 55%;
+  top: 40%;
 }
 .f90-ticker-row:nth-child(4) {
-  top: 75%;
+  top: 55%;
+}
+.f90-ticker-row:nth-child(5) {
+  top: 70%;
+}
+.f90-ticker-row:nth-child(6) {
+  top: 85%;
 }
 
 /* Pause all animations when hovered */
+
 .f90-ticker-strip-paused .f90-ticker-row {
   animation-play-state: paused;
 }
 
 /* Ticker chips */
+
 .f90-ticker-chip {
-  border: 1px solid rgba(67, 255, 138, 0.35);
+  border: 1px solid rgba(67, 255, 138, 0.45);
   border-radius: 999px;
-  background: rgba(3, 10, 6, 0.9);
-  padding: 4px 14px;
+  background: rgba(3, 10, 6, 0.96);
+  padding: 5px 18px;
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
-  font-family: var(--f90-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
-  font-size: 11px;
+  gap: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
   color: #a7f3c5;
   cursor: pointer;
   box-shadow:
@@ -417,23 +466,24 @@ body.f90-body {
 }
 
 .f90-ticker-chip:hover {
-  background: rgba(8, 31, 17, 0.95);
+  background: rgba(8, 31, 17, 0.98);
   transform: translateY(-1px);
   box-shadow:
-    0 0 10px rgba(67, 255, 138, 0.6),
-    0 0 24px rgba(67, 255, 138, 0.25);
+    0 0 10px rgba(67, 255, 138, 0.7),
+    0 0 26px rgba(67, 255, 138, 0.3);
 }
 
 .f90-ticker-symbol {
-  font-weight: 600;
-  color: #43ff8a;
+  font-weight: 700;
+  color: #43ff8a; /* neon */
 }
 
 .f90-ticker-price {
-  opacity: 0.8;
+  opacity: 0.9;
 }
 
-/* Insight card */
+/* Optional insight card (if you ever bring it back) */
+
 .f90-ticker-insight {
   position: absolute;
   right: 24px;
@@ -458,7 +508,8 @@ body.f90-body {
 }
 
 .f90-ticker-insight-symbol {
-  font-family: var(--f90-font-mono);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
   font-weight: 700;
   color: #43ff8a;
 }
@@ -475,6 +526,7 @@ body.f90-body {
 }
 
 /* keyframes */
+
 @keyframes f90-scroll-left {
   0% {
     transform: translateX(0%);
@@ -491,42 +543,4 @@ body.f90-body {
   100% {
     transform: translateX(0%);
   }
-}
-
-@keyframes ticker-left {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes ticker-right {
-  0% {
-    transform: translateX(-50%);
-  }
-  100% {
-    transform: translateX(0);
-  }
-}
-
-.animate-ticker-left {
-  animation: ticker-left linear infinite;
-}
-
-.animate-ticker-right {
-  animation: ticker-right linear infinite;
-}
-
-/* The TSX sets custom durations via Tailwind's arbitrary duration classes,
-   but we still need a default duration here for safety. */
-.animate-ticker-left,
-.animate-ticker-right {
-  animation-duration: 50s;
-}
-
-/* pause when we apply `paused` class */
-.paused {
-  animation-play-state: paused !important;
 }
