@@ -14,6 +14,7 @@ use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
+use rust_decimal::Decimal;
 
 /// Shared application state
 #[derive(Clone)]
@@ -98,7 +99,7 @@ struct FocusTickerStripRow {
     ticker: String,
     name: String,
     asset_class: String,
-    last_close_price: Option<f64>,
+    last_close_price: Option<Decimal>,
     short_insight: Option<String>,
     recent_insight: Option<String>,
 }

@@ -12,15 +12,16 @@ serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 sqlx = { version = "0.7", features = [
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "postgres",
-    "uuid",
-    "time",
-    "macros",
     "chrono",
+    "macros",
+    "uuid",
+    "rust_decimal"
 ] }
 dotenvy = "0.15"
 tower-http = { version = "0.5", features = ["trace", "cors"] }
 home = "=0.5.11"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+rust_decimal = { version = "1", features = ["serde"] }
