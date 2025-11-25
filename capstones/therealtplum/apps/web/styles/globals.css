@@ -311,3 +311,222 @@ body.f90-body {
     border-color: var(--f90-accent);
   }
 }
+
+/* Coming soon section */
+.f90-capstones-coming {
+  position: relative;
+  overflow: hidden;
+  min-height: 50vh;
+  background: radial-gradient(circle at top left, #0b2216 0, #050608 55%, #000000 100%);
+  border-top: 1px solid rgba(67, 255, 138, 0.12);
+  border-bottom: 1px solid rgba(67, 255, 138, 0.12);
+}
+
+/* Overlay text */
+.f90-capstones-overlay {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 16px;
+  text-align: center;
+}
+
+.f90-coming-soon-title {
+  font-size: clamp(40px, 6vw, 64px);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #43ff8a;
+  text-shadow: 0 0 14px rgba(67, 255, 138, 0.8);
+  margin-bottom: 12px;
+}
+
+.f90-coming-soon-subtitle {
+  font-size: 14px;
+  color: var(--f90-text-soft, #9ca3af);
+}
+
+/* Ticker background */
+.f90-ticker-strip {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.28;
+  pointer-events: auto; /* needed for hover to work */
+}
+
+.f90-ticker-row {
+  display: inline-flex;
+  white-space: nowrap;
+  gap: 16px;
+  padding: 8px 0;
+  position: absolute;
+  left: -50%;
+  right: -50%;
+}
+
+.f90-ticker-row-left {
+  animation: f90-scroll-left 40s linear infinite;
+}
+
+.f90-ticker-row-right {
+  animation: f90-scroll-right 52s linear infinite;
+}
+
+/* Stagger rows vertically */
+.f90-ticker-row:nth-child(1) {
+  top: 15%;
+}
+.f90-ticker-row:nth-child(2) {
+  top: 35%;
+}
+.f90-ticker-row:nth-child(3) {
+  top: 55%;
+}
+.f90-ticker-row:nth-child(4) {
+  top: 75%;
+}
+
+/* Pause all animations when hovered */
+.f90-ticker-strip-paused .f90-ticker-row {
+  animation-play-state: paused;
+}
+
+/* Ticker chips */
+.f90-ticker-chip {
+  border: 1px solid rgba(67, 255, 138, 0.35);
+  border-radius: 999px;
+  background: rgba(3, 10, 6, 0.9);
+  padding: 4px 14px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--f90-font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+  font-size: 11px;
+  color: #a7f3c5;
+  cursor: pointer;
+  box-shadow:
+    0 0 4px rgba(67, 255, 138, 0.25),
+    inset 0 0 0 1px rgba(5, 6, 8, 0.9);
+  transition:
+    background 120ms ease-out,
+    transform 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.f90-ticker-chip:hover {
+  background: rgba(8, 31, 17, 0.95);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 10px rgba(67, 255, 138, 0.6),
+    0 0 24px rgba(67, 255, 138, 0.25);
+}
+
+.f90-ticker-symbol {
+  font-weight: 600;
+  color: #43ff8a;
+}
+
+.f90-ticker-price {
+  opacity: 0.8;
+}
+
+/* Insight card */
+.f90-ticker-insight {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  max-width: min(420px, 80vw);
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: radial-gradient(circle at top left, #0b2216, #050608);
+  border: 1px solid rgba(67, 255, 138, 0.45);
+  box-shadow:
+    0 0 24px rgba(67, 255, 138, 0.4),
+    0 0 64px rgba(0, 0, 0, 0.85);
+  z-index: 15;
+}
+
+.f90-ticker-insight-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.f90-ticker-insight-symbol {
+  font-family: var(--f90-font-mono);
+  font-weight: 700;
+  color: #43ff8a;
+}
+
+.f90-ticker-insight-name {
+  font-size: 12px;
+  color: var(--f90-text-soft, #9ca3af);
+}
+
+.f90-ticker-insight-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e5e7eb;
+}
+
+/* keyframes */
+@keyframes f90-scroll-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes f90-scroll-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes ticker-left {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ticker-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.animate-ticker-left {
+  animation: ticker-left linear infinite;
+}
+
+.animate-ticker-right {
+  animation: ticker-right linear infinite;
+}
+
+/* The TSX sets custom durations via Tailwind's arbitrary duration classes,
+   but we still need a default duration here for safety. */
+.animate-ticker-left,
+.animate-ticker-right {
+  animation-duration: 50s;
+}
+
+/* pause when we apply `paused` class */
+.paused {
+  animation-play-state: paused !important;
+}

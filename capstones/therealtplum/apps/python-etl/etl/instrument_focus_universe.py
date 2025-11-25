@@ -1,264 +1,354 @@
+# apps/python-etl/etl/instrument_focus_universe.py
+
 import os
-import requests
-import psycopg2
-from psycopg2.extras import execute_values
+import sys
+import time
+import logging
 from datetime import date
+from typing import Dict, Any, List, Optional, Tuple
+
+import psycopg2
+import psycopg2.extras
 import requests
-from requests import HTTPError
 
 POLYGON_API_KEY = os.environ["POLYGON_API_KEY"]
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
 
-# How many globally, and minimum per asset_class
-GLOBAL_TOP_N = 500
-MIN_PER_ASSET_CLASS = {
-    "equity": 200,
-    "etf": 100,
-    "crypto": 100,
-}
+logging.basicConfig(
+    level=logging.INFO,
+    format="[instrument_focus] %(message)s",
+    stream=sys.stdout,
+)
+log = logging.getLogger(__name__)
 
+
+# -------------------------------------------------------------------
+# DB helpers
+# -------------------------------------------------------------------
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
-def fetch_polygon_snapshot(url: str) -> list[dict]:
+
+# -------------------------------------------------------------------
+# Polygon helpers
+# -------------------------------------------------------------------
+
+def fetch_polygon_snapshot(url: str) -> List[Dict[str, Any]]:
+    """
+    Fetch a snapshot from Polygon (stocks or crypto).
+    """
     params = {"apiKey": POLYGON_API_KEY}
-    print(f"[instrument_focus] Fetching snapshot: {url}")
+    log.info(f"Fetching snapshot: {url}")
     resp = requests.get(url, params=params, timeout=30)
-
-    # Handle permission issues gracefully
     if resp.status_code == 403:
-        print(f"[instrument_focus] 403 Forbidden from Polygon for {url} – skipping this snapshot.")
+        log.warning(
+            f"403 Forbidden from Polygon for {url} – skipping this snapshot."
+        )
         return []
-
-    try:
-        resp.raise_for_status()
-    except HTTPError as e:
-        print(f"[instrument_focus] ERROR for {url}: {e}")
-        return []
-
+    resp.raise_for_status()
     data = resp.json()
     return data.get("tickers", [])
 
 
-def build_activity_from_snapshots() -> dict[str, dict]:
+def compute_activity_for_ticker(t: Dict[str, Any], asset_class: str) -> Dict[str, Any]:
     """
-    Returns a dict keyed by ticker:
-      {
-        "TICKER": {"volume": float, "dollar_volume": float},
-        ...
-      }
-    Uses Polygon snapshot endpoints for stocks + crypto.
+    Given a Polygon snapshot ticker payload, compute simple activity metrics.
+    We keep it deliberately simple: dollar_volume = close * volume.
     """
+    last_quote = t.get("lastQuote", {}) or {}
+    last_trade = t.get("lastTrade", {}) or {}
+    day = t.get("day", {}) or {}
 
-    ticker_activity: dict[str, dict] = {}
+    # Prefer "c" (close) from day; fallback to last trade price
+    close = day.get("c") or last_trade.get("p")
+    volume = day.get("v") or last_trade.get("s")
 
-    # US stocks snapshot (includes equities/ETFs that trade on US exchanges)
+    try:
+        close = float(close) if close is not None else None
+    except (TypeError, ValueError):
+        close = None
+
+    try:
+        volume = float(volume) if volume is not None else 0.0
+    except (TypeError, ValueError):
+        volume = 0.0
+
+    dollar_volume = (close or 0.0) * volume
+
+    return {
+        "asset_class": asset_class,
+        "dollar_volume": dollar_volume,
+        "volume": volume,
+    }
+
+
+def build_activity_from_snapshots() -> Dict[str, Dict[str, Any]]:
+    """
+    Build a map of ticker -> activity metrics from Polygon snapshots
+    for US stocks and global crypto.
+    """
+    activity: Dict[str, Dict[str, Any]] = {}
+
+    # Stocks snapshot
     stocks_url = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
     stock_tickers = fetch_polygon_snapshot(stocks_url)
-
     for t in stock_tickers:
         ticker = t.get("ticker")
         if not ticker:
             continue
+        metrics = compute_activity_for_ticker(t, asset_class="equity")
+        activity[ticker] = metrics
 
-        day = t.get("day") or {}
-        v = day.get("v") or 0  # volume
-        vw = day.get("vw") or 0  # volume-weighted avg price
-        dollar_volume = float(v) * float(vw)
-
-        ticker_activity[ticker] = {
-            "volume": float(v),
-            "dollar_volume": dollar_volume,
-        }
-
-    # Crypto snapshot (optional but nice)
+    # Crypto snapshot (best-effort; may be forbidden on your plan)
     crypto_url = "https://api.polygon.io/v2/snapshot/locale/global/markets/crypto/tickers"
     crypto_tickers = fetch_polygon_snapshot(crypto_url)
-
     for t in crypto_tickers:
         ticker = t.get("ticker")
         if not ticker:
             continue
+        metrics = compute_activity_for_ticker(t, asset_class="crypto")
+        # If ticker overlaps with equity universe, keep whichever has higher dollar_volume
+        if ticker in activity:
+            if metrics["dollar_volume"] > activity[ticker]["dollar_volume"]:
+                activity[ticker] = metrics
+        else:
+            activity[ticker] = metrics
 
-        day = t.get("day") or {}
-        v = day.get("v") or 0
-        vw = day.get("vw") or 0
-        dollar_volume = float(v) * float(vw)
+    log.info(f"Built activity metrics for {len(activity)} tickers")
+    return activity
 
-        # If crypto share the same ticker symbols as stocks, this would overwrite,
-        # but in practice they live in a different namespace (e.g. X:BTCUSD).
-        ticker_activity[ticker] = {
-            "volume": float(v),
-            "dollar_volume": dollar_volume,
+
+def fetch_prev_close_price(ticker: str) -> Optional[float]:
+    """
+    Fetch previous close price for a ticker from Polygon.
+
+    Uses:
+        GET /v2/aggs/ticker/{ticker}/prev?adjusted=true&apiKey=...
+
+    Returns:
+        float close price, or None if not available / error.
+    """
+    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/prev"
+    params = {"adjusted": "true", "apiKey": POLYGON_API_KEY}
+
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        if resp.status_code == 403:
+            log.warning(f"403 Forbidden for prev close {ticker} – skipping price.")
+            return None
+        if resp.status_code == 429:
+            # crude backoff
+            log.warning(f"429 Too Many Requests for {ticker}, sleeping 1s…")
+            time.sleep(1)
+            resp = requests.get(url, params=params, timeout=10)
+
+        resp.raise_for_status()
+        data = resp.json()
+        results = data.get("results") or []
+        if not results:
+            return None
+        close = results[0].get("c")
+        if close is None:
+            return None
+        return float(close)
+    except Exception as e:
+        log.warning(f"Failed to fetch prev close for {ticker}: {e}")
+        return None
+
+
+# -------------------------------------------------------------------
+# Focus universe builder
+# -------------------------------------------------------------------
+
+def build_focus_universe(
+    conn,
+    as_of: Optional[date] = None,
+    global_top_n: int = 500,
+    min_by_asset: Optional[Dict[str, int]] = None,
+) -> None:
+    """
+    Build the instrument_focus_universe table for a given as_of date.
+
+    Strategy:
+      1. Build Polygon activity metrics (dollar_volume, volume, asset_class).
+      2. Map tickers to fmhub instruments.
+      3. Compute global + per-asset-class ranks.
+      4. Select global_top_n overall, and ensure at least min_by_asset per class.
+      5. For those focus instruments, fetch prev close price from Polygon
+         and upsert into instrument_focus_universe with last_close_price.
+    """
+    if as_of is None:
+        as_of = date.today()
+
+    if min_by_asset is None:
+        min_by_asset = {
+            "equity": 200,
+            "etf": 100,
+            "crypto": 100,
         }
 
-    print(f"[instrument_focus] Built activity metrics for {len(ticker_activity)} tickers")
-    return ticker_activity
-
-
-def load_instruments_for_tickers(conn, tickers: list[str]) -> list[dict]:
-    """
-    Look up our instruments by ticker so we can map Polygon tickers -> instrument_id + asset_class.
-    """
-    if not tickers:
-        return []
-
-    cur = conn.cursor()
-    cur.execute(
-        """
-        SELECT id, ticker, asset_class
-        FROM instruments
-        WHERE ticker = ANY(%s)
-        """,
-        (tickers,),
-    )
-    rows = cur.fetchall()
-    cur.close()
-
-    instruments = []
-    for (inst_id, ticker, asset_class) in rows:
-        instruments.append(
-            {
-                "id": inst_id,
-                "ticker": ticker,
-                "asset_class": asset_class,
-            }
-        )
-
-    print(f"[instrument_focus] Matched {len(instruments)} instruments from DB")
-    return instruments
-
-
-def build_focus_universe(conn):
-    """
-    Main job:
-      1. Pull Polygon snapshots (stocks + crypto).
-      2. Compute dollar volume per ticker.
-      3. Join to our instruments.
-      4. Compute global + per-asset_class ranks.
-      5. Select top N globally + min per asset_class.
-      6. Upsert into instrument_focus_universe for today.
-    """
-
-    today = date.today()
-
-    # 1) Get activity metrics from Polygon
+    log.info("Building activity metrics from Polygon snapshots…")
     activity = build_activity_from_snapshots()
-    if not activity:
-        print("[instrument_focus] No activity metrics; aborting.")
+
+    # 2. Map tickers to instruments in DB
+    ticker_list = list(activity.keys())
+    if not ticker_list:
+        log.warning("No activity metrics to process. Exiting.")
         return
 
-    # 2) Map to our instruments
-    conn.autocommit = False
-    instruments = load_instruments_for_tickers(conn, list(activity.keys()))
+    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        # Fetch instruments for these tickers
+        cur.execute(
+            """
+            SELECT id, ticker, asset_class::text AS asset_class
+            FROM instruments
+            WHERE ticker = ANY(%s)
+              AND status = 'active'
+            """,
+            (ticker_list,),
+        )
+        rows = cur.fetchall()
 
-    # Attach activity metrics
-    enriched = []
-    for inst in instruments:
-        t = inst["ticker"]
-        m = activity.get(t)
-        if not m:
+    by_ticker: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        by_ticker[row["ticker"]] = {
+            "instrument_id": row["id"],
+            "asset_class": row["asset_class"],
+        }
+
+    log.info(f"Matched {len(by_ticker)} instruments from DB")
+
+    # 3. Build list of candidates with activity + instrument mapping
+    candidates: List[Dict[str, Any]] = []
+    for ticker, metrics in activity.items():
+        info = by_ticker.get(ticker)
+        if not info:
             continue
 
-        enriched.append(
+        asset_class = info["asset_class"] or metrics["asset_class"]
+        dollar_volume = metrics["dollar_volume"]
+        volume = metrics["volume"]
+
+        candidates.append(
             {
-                "id": inst["id"],
-                "ticker": t,
-                "asset_class": inst["asset_class"],
-                "volume": m["volume"],
-                "dollar_volume": m["dollar_volume"],
+                "ticker": ticker,
+                "instrument_id": info["instrument_id"],
+                "asset_class": asset_class,
+                "dollar_volume": dollar_volume,
+                "volume": volume,
             }
         )
 
-    if not enriched:
-        print("[instrument_focus] No enriched instruments; aborting.")
-        conn.rollback()
+    if not candidates:
+        log.warning("No candidates after mapping activity to instruments.")
         return
 
-    # 3) Rank globally by dollar_volume
-    enriched.sort(key=lambda x: x["dollar_volume"], reverse=True)
-    for rank, inst in enumerate(enriched, start=1):
-        inst["rank_global"] = rank
+    # 4. Global ranking by dollar_volume desc
+    candidates.sort(key=lambda c: c["dollar_volume"], reverse=True)
+    for idx, c in enumerate(candidates, start=1):
+        c["rank_global"] = idx
 
-    # 4) Rank within each asset_class
-    by_asset: dict[str, list[dict]] = {}
-    for inst in enriched:
-        asset = inst.get("asset_class") or "unknown"
-        by_asset.setdefault(asset, []).append(inst)
+    # 5. Per-asset-class ranking
+    per_asset: Dict[str, List[Dict[str, Any]]] = {}
+    for c in candidates:
+        per_asset.setdefault(c["asset_class"], []).append(c)
 
-    for asset, items in by_asset.items():
-        items.sort(key=lambda x: x["dollar_volume"], reverse=True)
-        for rank, inst in enumerate(items, start=1):
-            inst["rank_asset_class"] = rank
+    for asset_class, items in per_asset.items():
+        items.sort(key=lambda c: c["dollar_volume"], reverse=True)
+        for idx, c in enumerate(items, start=1):
+            c["rank_asset_class"] = idx
 
-    # 5) Select focus universe: global top N + min per asset_class
-    #    Use set of instrument_ids to dedupe.
-    selected_ids = set()
+    # 6. Select focus universe: global top + min per asset class
+    focus: Dict[int, Dict[str, Any]] = {}
 
-    # Global top N
-    for inst in enriched[:GLOBAL_TOP_N]:
-        selected_ids.add(inst["id"])
+    # global top
+    for c in candidates[:global_top_n]:
+        focus[c["instrument_id"]] = c
 
-    # Per asset_class minimums
-    for asset, min_count in MIN_PER_ASSET_CLASS.items():
-        items = by_asset.get(asset, [])
-        for inst in items[:min_count]:
-            selected_ids.add(inst["id"])
+    # min per asset class
+    for asset_class, min_n in min_by_asset.items():
+        items = per_asset.get(asset_class, [])
+        for c in items[:min_n]:
+            focus[c["instrument_id"]] = c
 
-    focus_instruments = [inst for inst in enriched if inst["id"] in selected_ids]
-
-    print(
-        f"[instrument_focus] Focus universe for {today}: "
-        f"{len(focus_instruments)} instruments "
-        f"(global top {GLOBAL_TOP_N} + per-asset mins {MIN_PER_ASSET_CLASS})"
+    focus_list = list(focus.values())
+    log.info(
+        f"Focus universe for {as_of}: {len(focus_list)} instruments "
+        f"(global top {global_top_n} + per-asset mins {min_by_asset})"
     )
 
-    # 6) Upsert into instrument_focus_universe
-    cur = conn.cursor()
+    # 7. Upsert into instrument_focus_universe with last_close_price
+    with conn.cursor() as cur:
+        for idx, c in enumerate(focus_list, start=1):
+            ticker = c["ticker"]
+            instrument_id = c["instrument_id"]
+            asset_class = c["asset_class"]
+            dollar_volume = c["dollar_volume"]
+            volume = c["volume"]
+            rank_global = c["rank_global"]
+            rank_asset = c["rank_asset_class"]
 
-    # Clear any existing rows for today (simple + idempotent)
-    cur.execute(
-        "DELETE FROM instrument_focus_universe WHERE as_of_date = %s",
-        (today,),
-    )
+            # Fetch prev close price from Polygon
+            last_close_price = fetch_prev_close_price(ticker)
 
-    rows_to_insert = [
-        (
-            today,
-            inst["id"],
-            inst.get("asset_class"),
-            inst["dollar_volume"],
-            inst["volume"],
-            inst["rank_global"],
-            inst["rank_asset_class"],
-        )
-        for inst in focus_instruments
-    ]
+            if idx <= 10:
+                # only spam log for first few
+                log.info(
+                    f"[{idx}/{len(focus_list)}] {ticker} "
+                    f"id={instrument_id} dv={dollar_volume:.0f} "
+                    f"last_close={last_close_price}"
+                )
 
-    insert_sql = """
-        INSERT INTO instrument_focus_universe (
-            as_of_date,
-            instrument_id,
-            asset_class,
-            dollar_volume,
-            volume,
-            activity_rank_global,
-            activity_rank_asset_class
-        )
-        VALUES %s
-    """
+            cur.execute(
+                """
+                INSERT INTO instrument_focus_universe (
+                    as_of_date,
+                    instrument_id,
+                    asset_class,
+                    dollar_volume,
+                    volume,
+                    activity_rank_global,
+                    activity_rank_asset_class,
+                    last_close_price
+                )
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                ON CONFLICT (as_of_date, instrument_id)
+                DO UPDATE SET
+                    asset_class              = EXCLUDED.asset_class,
+                    dollar_volume            = EXCLUDED.dollar_volume,
+                    volume                   = EXCLUDED.volume,
+                    activity_rank_global     = EXCLUDED.activity_rank_global,
+                    activity_rank_asset_class= EXCLUDED.activity_rank_asset_class,
+                    last_close_price         = EXCLUDED.last_close_price
+                """,
+                (
+                    as_of,
+                    instrument_id,
+                    asset_class,
+                    dollar_volume,
+                    volume,
+                    rank_global,
+                    rank_asset,
+                    last_close_price,
+                ),
+            )
 
-    execute_values(cur, insert_sql, rows_to_insert)
-    conn.commit()
-    cur.close()
+        conn.commit()
 
-    print("[instrument_focus] Upserted focus universe successfully.")
+
+# -------------------------------------------------------------------
+# CLI entrypoint
+# -------------------------------------------------------------------
+
+def main():
+    as_of = date.today()
+    conn = get_conn()
+    try:
+        build_focus_universe(conn, as_of=as_of)
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":
-    conn = get_conn()
-    try:
-        build_focus_universe(conn)
-    finally:
-        conn.close()
+    main()

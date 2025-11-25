@@ -44,7 +44,7 @@ services:
       - "3000:3000"
 
   # -------------------------------------------------------------------
-  # Python ETL – one-shot ETL jobs
+  # Python ETL – idle service, jobs run via `docker compose run`
   # -------------------------------------------------------------------
   etl:
     build:
@@ -56,7 +56,9 @@ services:
     environment:
       DATABASE_URL: postgres://app:app@db:5432/fmhub
       POLYGON_API_KEY: ${POLYGON_API_KEY}
-    # command: ["python", "-m", "etl.jobs.full_refresh"]
+    # Keep the ETL container idle in `docker compose up` – you trigger jobs with `docker compose run`
+    command: >
+      sh -c "echo 'fmhub ETL container idle. Run jobs via docker compose run --rm etl …' && tail -f /dev/null"
 
   # -------------------------------------------------------------------
   # Web – Next.js frontend
@@ -69,8 +71,8 @@ services:
     depends_on:
       - api
     environment:
-      NEXT_PUBLIC_API_BASE_URL: "http://fmhub_api:3000"
-      NODE_ENV: production
+      # From inside the web container, talk to the api service directly
+      NEXT_PUBLIC_API_BASE_URL: "http://api:3000"
     ports:
       - "3001:3000"
 

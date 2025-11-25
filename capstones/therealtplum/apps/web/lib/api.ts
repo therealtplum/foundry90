@@ -29,6 +29,16 @@ export interface InstrumentInsight {
   content_markdown: string;
 }
 
+export interface FocusTickerStripItem {
+  instrument_id: number;
+  ticker: string;
+  name: string;
+  asset_class: string;
+  last_close_price: number | null;
+  short_insight: string | null;
+  recent_insight: string | null;
+}
+
 function getBaseUrl() {
   if (typeof window !== "undefined") {
     return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
@@ -67,4 +77,8 @@ export async function getInstrumentOverviewInsight(
   return apiGet<InstrumentInsight>(
     `/instruments/${id}/insights/overview?horizon_days=${horizon_days}`
   );
+}
+
+export async function getFocusTickerStrip(): Promise<FocusTickerStripItem[]> {
+  return apiGet<FocusTickerStripItem[]>("/focus/ticker-strip");
 }

@@ -11,14 +11,15 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
 sqlx = { version = "0.7", features = [
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "postgres",
-    "uuid",
-    "time",
-    "macros",
     "chrono",
+    "macros",
+    "uuid"
 ] }
+
 dotenvy = "0.15"
 tower-http = { version = "0.5", features = ["trace", "cors"] }
 home = "=0.5.11"

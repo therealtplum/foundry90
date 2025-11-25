@@ -12,7 +12,11 @@ use std::{env, net::SocketAddr};
 use tokio::net::TcpListener;
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
+
+// ---------------------------------------------------------------------
+// Application state
+// ---------------------------------------------------------------------
 
 #[derive(Clone)]
 struct AppState {
@@ -34,7 +38,7 @@ struct InstrumentSummary {
     asset_class: String,
 }
 
-/// More detailed instrument view (you can extend this later)
+/// More detailed instrument view
 #[derive(Debug, Serialize, FromRow)]
 struct InstrumentDetail {
     id: i64,
@@ -64,7 +68,7 @@ struct NewsArticleDto {
 /// Instrument insight record from DB
 #[derive(Debug, FromRow)]
 struct InstrumentInsightRecord {
-    _id: i64,
+    id: i64,
     content_markdown: String,
     model_name: Option<String>,
     created_at: chrono::DateTime<chrono::Utc>,
@@ -79,6 +83,19 @@ struct ListInstrumentsParams {
 #[derive(Debug, Deserialize)]
 struct InsightQueryParams {
     horizon_days: Option<i32>,
+}
+
+// --- Focus ticker strip model ---
+
+#[derive(Debug, Serialize, FromRow)]
+struct FocusTickerStripRow {
+    instrument_id: i64,
+    ticker: String,
+    name: String,
+    asset_class: String,
+    last_close_price: Option<f64>,
+    short_insight: Option<String>,
+    recent_insight: Option<String>,
 }
 
 #[tokio::main]
@@ -113,6 +130,7 @@ async fn main() -> anyhow::Result<()> {
             "/instruments/{id}/insights/{kind}",
             get(get_instrument_insight_handler),
         )
+        .route("/focus/ticker-strip", get(get_focus_ticker_strip))
         .with_state(state);
 
     let port: u16 = env::var("PORT")
@@ -224,7 +242,6 @@ async fn get_instrument_handler(
 
     match result {
         Ok(Some(instr)) => {
-            // We wrap in `json!` so all branches return Json<Value>
             let body = json!(instr);
             (StatusCode::OK, Json(body))
         }
@@ -421,7 +438,8 @@ async fn get_instrument_insight_handler(
 
     let context_str = serde_json::to_string_pretty(&raw_context).unwrap_or_default();
 
-    let llm_result = llm::generate_instrument_insight(&api_key, &model, &kind, &context_str).await;
+    let llm_result =
+        llm::generate_instrument_insight(&api_key, &model, &kind, &context_str).await;
 
     let content_markdown = match llm_result {
         Ok(text) => text,
@@ -486,6 +504,56 @@ async fn get_instrument_insight_handler(
     });
 
     (StatusCode::OK, Json(payload))
+}
+
+// ---------------------------------------------------------------------
+// Focus ticker strip handler
+// ---------------------------------------------------------------------
+
+async fn get_focus_ticker_strip(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let result = sqlx::query_as::<_, FocusTickerStripRow>(
+        r#"
+        SELECT
+            fu.instrument_id,
+            i.ticker,
+            i.name,
+            i.asset_class::text AS asset_class,
+            fu.last_close_price,
+            LEFT(overview.content_markdown, 280) AS short_insight,
+            LEFT(recent.content_markdown, 280)   AS recent_insight
+        FROM instrument_focus_universe fu
+        JOIN instruments i
+          ON i.id = fu.instrument_id
+        LEFT JOIN instrument_insights overview
+          ON overview.instrument_id = fu.instrument_id
+         AND overview.insight_type = 'overview'
+         AND overview.horizon_days = 30
+        LEFT JOIN instrument_insights recent
+          ON recent.instrument_id = fu.instrument_id
+         AND recent.insight_type = 'recent'
+         AND recent.horizon_days = 30
+        WHERE fu.as_of_date = (
+          SELECT MAX(as_of_date) FROM instrument_focus_universe
+        )
+        ORDER BY fu.activity_rank_global ASC
+        LIMIT 500
+        "#
+    )
+    .fetch_all(&state.db_pool)
+    .await;
+
+    match result {
+        Ok(rows) => (StatusCode::OK, Json(rows)),
+        Err(err) => {
+            error!("Failed to load focus ticker strip: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(Vec::<FocusTickerStripRow>::new()),
+            )
+        }
+    }
 }
 
 // ---------------------------------------------------------------------
