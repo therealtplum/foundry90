@@ -1,17 +1,34 @@
 # apps/python-etl/etl/instrument_focus_universe.py
+"""
+Build and persist the daily FMHub instrument focus universe.
+
+Strategy (per as_of_date):
+  1. Pull Polygon snapshots for US stocks and global crypto.
+  2. Compute simple activity metrics (dollar_volume, volume, asset_class).
+  3. Map Polygon tickers to fmhub.instruments (status = 'active').
+  4. Rank globally and by asset_class.
+  5. Select a focus universe:
+       - top N globally
+       - plus a minimum per asset_class (equity/etf/crypto).
+  6. For each focus instrument, fetch previous close price from Polygon
+     and upsert into instrument_focus_universe.
+"""
 
 import os
 import sys
 import time
 import logging
 from datetime import date
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional
 
 import psycopg2
 import psycopg2.extras
 import requests
 
-POLYGON_API_KEY = os.environ["POLYGON_API_KEY"]
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+if not POLYGON_API_KEY:
+    raise RuntimeError("POLYGON_API_KEY environment variable is required for instrument_focus_universe ETL")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
 
 logging.basicConfig(
@@ -20,6 +37,10 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 log = logging.getLogger(__name__)
+
+STOCK_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
+CRYPTO_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/global/markets/crypto/tickers"
+PREV_CLOSE_URL_TEMPLATE = "https://api.polygon.io/v2/aggs/ticker/{ticker}/prev"
 
 
 # -------------------------------------------------------------------
@@ -34,21 +55,24 @@ def get_conn():
 # Polygon helpers
 # -------------------------------------------------------------------
 
+# TODO: consider moving Polygon HTTP helpers into a shared client module
+#       so we centralize auth, logging, and backoff behavior.
+
 def fetch_polygon_snapshot(url: str) -> List[Dict[str, Any]]:
     """
     Fetch a snapshot from Polygon (stocks or crypto).
+
+    Returns a list of ticker payloads (or empty list on 403).
     """
     params = {"apiKey": POLYGON_API_KEY}
     log.info(f"Fetching snapshot: {url}")
     resp = requests.get(url, params=params, timeout=30)
     if resp.status_code == 403:
-        log.warning(
-            f"403 Forbidden from Polygon for {url} – skipping this snapshot."
-        )
+        log.warning(f"403 Forbidden from Polygon for {url} – skipping this snapshot.")
         return []
     resp.raise_for_status()
     data = resp.json()
-    return data.get("tickers", [])
+    return data.get("tickers", []) or []
 
 
 def compute_activity_for_ticker(t: Dict[str, Any], asset_class: str) -> Dict[str, Any]:
@@ -56,11 +80,10 @@ def compute_activity_for_ticker(t: Dict[str, Any], asset_class: str) -> Dict[str
     Given a Polygon snapshot ticker payload, compute simple activity metrics.
     We keep it deliberately simple: dollar_volume = close * volume.
     """
-    last_quote = t.get("lastQuote", {}) or {}
-    last_trade = t.get("lastTrade", {}) or {}
-    day = t.get("day", {}) or {}
+    last_trade = t.get("lastTrade") or {}
+    day = t.get("day") or {}
 
-    # Prefer "c" (close) from day; fallback to last trade price
+    # Prefer "c" (close) from day; fallback to last trade price.
     close = day.get("c") or last_trade.get("p")
     volume = day.get("v") or last_trade.get("s")
 
@@ -91,8 +114,7 @@ def build_activity_from_snapshots() -> Dict[str, Dict[str, Any]]:
     activity: Dict[str, Dict[str, Any]] = {}
 
     # Stocks snapshot
-    stocks_url = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
-    stock_tickers = fetch_polygon_snapshot(stocks_url)
+    stock_tickers = fetch_polygon_snapshot(STOCK_SNAPSHOT_URL)
     for t in stock_tickers:
         ticker = t.get("ticker")
         if not ticker:
@@ -101,18 +123,16 @@ def build_activity_from_snapshots() -> Dict[str, Dict[str, Any]]:
         activity[ticker] = metrics
 
     # Crypto snapshot (best-effort; may be forbidden on your plan)
-    crypto_url = "https://api.polygon.io/v2/snapshot/locale/global/markets/crypto/tickers"
-    crypto_tickers = fetch_polygon_snapshot(crypto_url)
+    crypto_tickers = fetch_polygon_snapshot(CRYPTO_SNAPSHOT_URL)
     for t in crypto_tickers:
         ticker = t.get("ticker")
         if not ticker:
             continue
         metrics = compute_activity_for_ticker(t, asset_class="crypto")
-        # If ticker overlaps with equity universe, keep whichever has higher dollar_volume
-        if ticker in activity:
-            if metrics["dollar_volume"] > activity[ticker]["dollar_volume"]:
-                activity[ticker] = metrics
-        else:
+
+        # If ticker overlaps with equity universe, keep whichever has higher dollar_volume.
+        existing = activity.get(ticker)
+        if existing is None or metrics["dollar_volume"] > existing["dollar_volume"]:
             activity[ticker] = metrics
 
     log.info(f"Built activity metrics for {len(activity)} tickers")
@@ -129,7 +149,7 @@ def fetch_prev_close_price(ticker: str) -> Optional[float]:
     Returns:
         float close price, or None if not available / error.
     """
-    url = f"https://api.polygon.io/v2/aggs/ticker/{ticker}/prev"
+    url = PREV_CLOSE_URL_TEMPLATE.format(ticker=ticker)
     params = {"adjusted": "true", "apiKey": POLYGON_API_KEY}
 
     try:
@@ -161,6 +181,12 @@ def fetch_prev_close_price(ticker: str) -> Optional[float]:
 # Focus universe builder
 # -------------------------------------------------------------------
 
+# TODO: if this ever gets too slow or hits Polygon rate limits,
+#       consider:
+#         - caching prev-close data,
+#         - or persisting full OHLCV time series in another ETL,
+#         - or skipping prev-close on non-critical instruments.
+
 def build_focus_universe(
     conn,
     as_of: Optional[date] = None,
@@ -188,7 +214,7 @@ def build_focus_universe(
             "crypto": 100,
         }
 
-    log.info("Building activity metrics from Polygon snapshots…")
+    log.info(f"Building activity metrics from Polygon snapshots for as_of={as_of}…")
     activity = build_activity_from_snapshots()
 
     # 2. Map tickers to instruments in DB
@@ -198,7 +224,6 @@ def build_focus_universe(
         return
 
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        # Fetch instruments for these tickers
         cur.execute(
             """
             SELECT id, ticker, asset_class::text AS asset_class
@@ -279,6 +304,9 @@ def build_focus_universe(
     )
 
     # 7. Upsert into instrument_focus_universe with last_close_price
+    success_prices = 0
+    total = len(focus_list)
+
     with conn.cursor() as cur:
         for idx, c in enumerate(focus_list, start=1):
             ticker = c["ticker"]
@@ -289,13 +317,14 @@ def build_focus_universe(
             rank_global = c["rank_global"]
             rank_asset = c["rank_asset_class"]
 
-            # Fetch prev close price from Polygon
             last_close_price = fetch_prev_close_price(ticker)
+            if last_close_price is not None:
+                success_prices += 1
 
             if idx <= 10:
                 # only spam log for first few
                 log.info(
-                    f"[{idx}/{len(focus_list)}] {ticker} "
+                    f"[{idx}/{total}] {ticker} "
                     f"id={instrument_id} dv={dollar_volume:.0f} "
                     f"last_close={last_close_price}"
                 )
@@ -315,12 +344,12 @@ def build_focus_universe(
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
                 ON CONFLICT (as_of_date, instrument_id)
                 DO UPDATE SET
-                    asset_class              = EXCLUDED.asset_class,
-                    dollar_volume            = EXCLUDED.dollar_volume,
-                    volume                   = EXCLUDED.volume,
-                    activity_rank_global     = EXCLUDED.activity_rank_global,
-                    activity_rank_asset_class= EXCLUDED.activity_rank_asset_class,
-                    last_close_price         = EXCLUDED.last_close_price
+                    asset_class               = EXCLUDED.asset_class,
+                    dollar_volume             = EXCLUDED.dollar_volume,
+                    volume                    = EXCLUDED.volume,
+                    activity_rank_global      = EXCLUDED.activity_rank_global,
+                    activity_rank_asset_class = EXCLUDED.activity_rank_asset_class,
+                    last_close_price          = EXCLUDED.last_close_price
                 """,
                 (
                     as_of,
@@ -335,6 +364,11 @@ def build_focus_universe(
             )
 
         conn.commit()
+
+    log.info(
+        f"Finished upserting focus universe for {as_of}: "
+        f"{total} rows, {success_prices} with last_close_price populated."
+    )
 
 
 # -------------------------------------------------------------------

@@ -1,12 +1,21 @@
 import os
 import json
 import hashlib
+import logging
 import requests
 import psycopg2
-from psycopg2.extras import execute_values
 
-POLYGON_API_KEY = os.environ["POLYGON_API_KEY"]
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+if not POLYGON_API_KEY:
+    raise RuntimeError("POLYGON_API_KEY environment variable is required for polygon_instruments ETL")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="[polygon_instruments] %(message)s",
+)
+log = logging.getLogger(__name__)
 
 
 def get_conn():
@@ -14,6 +23,9 @@ def get_conn():
 
 
 def normalize_asset_class(market: str | None) -> str | None:
+    """
+    Map Polygon 'market' to our internal asset_class values.
+    """
     if market is None:
         return None
 
@@ -30,9 +42,14 @@ def normalize_asset_class(market: str | None) -> str | None:
 
 
 # ----------------------------------------------------------------------
-# NEW: Compute hash of relevant fields to detect actual changes
+# Compute hash of relevant fields to detect actual changes
 # ----------------------------------------------------------------------
+
 def compute_payload_hash(ticker: dict) -> str:
+    """
+    Compute a stable hash of relevant reference fields so we only update
+    instruments when something material changes.
+    """
     relevant = {
         "ticker": ticker.get("ticker"),
         "name": ticker.get("name"),
@@ -47,10 +64,14 @@ def compute_payload_hash(ticker: dict) -> str:
 
 
 # ----------------------------------------------------------------------
-# Upsert with change detection
+# Upsert with change detection (no ON CONFLICT)
 # ----------------------------------------------------------------------
+
 def upsert_instrument(cur, t: dict):
     ticker = t.get("ticker")
+    if not ticker:
+        return
+
     name = t.get("name") or ticker
     market = t.get("market")
     asset_class = normalize_asset_class(market)
@@ -67,56 +88,97 @@ def upsert_instrument(cur, t: dict):
 
     payload_hash = compute_payload_hash(t)
 
-    sql = """
-        INSERT INTO instruments (
-            ticker,
-            name,
-            asset_class,
-            exchange,
-            currency_code,
-            region,
-            country_code,
-            primary_source,
-            status,
-            source_last_seen_at,
-            source_payload_hash
-        )
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
-        ON CONFLICT (ticker) DO UPDATE SET
-            name                = EXCLUDED.name,
-            asset_class         = EXCLUDED.asset_class,
-            exchange            = EXCLUDED.exchange,
-            currency_code       = EXCLUDED.currency_code,
-            region              = EXCLUDED.region,
-            country_code        = EXCLUDED.country_code,
-            primary_source      = EXCLUDED.primary_source,
-            status              = EXCLUDED.status,
-            source_last_seen_at = NOW(),
-            source_payload_hash = EXCLUDED.source_payload_hash
-        WHERE
-            instruments.source_payload_hash IS DISTINCT FROM EXCLUDED.source_payload_hash;
-    """
-
+    # 1) Check existing hash for (ticker, primary_source)
     cur.execute(
-        sql,
-        (
-            ticker,
-            name,
-            asset_class,
-            exchange,
-            currency_code,
-            region,
-            country_code,
-            primary_source,
-            status,
-            payload_hash,
-        ),
+        """
+        SELECT source_payload_hash
+        FROM instruments
+        WHERE ticker = %s
+          AND primary_source = %s
+        """,
+        (ticker, primary_source),
     )
+    row = cur.fetchone()
+
+    if row is not None:
+        existing_hash = row[0]
+        # If nothing changed, skip
+        if existing_hash == payload_hash:
+            return
+
+        # 2) UPDATE existing row
+        cur.execute(
+            """
+            UPDATE instruments
+            SET
+                name                = %s,
+                asset_class         = %s,
+                exchange            = %s,
+                currency_code       = %s,
+                region              = %s,
+                country_code        = %s,
+                primary_source      = %s,
+                status              = %s,
+                source_last_seen_at = NOW(),
+                source_payload_hash = %s
+            WHERE ticker = %s
+              AND primary_source = %s
+            """,
+            (
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                payload_hash,
+                ticker,
+                primary_source,
+            ),
+        )
+    else:
+        # 3) INSERT new row
+        cur.execute(
+            """
+            INSERT INTO instruments (
+                ticker,
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                source_last_seen_at,
+                source_payload_hash
+            )
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s, NOW(), %s)
+            """,
+            (
+                ticker,
+                name,
+                asset_class,
+                exchange,
+                currency_code,
+                region,
+                country_code,
+                primary_source,
+                status,
+                payload_hash,
+            ),
+        )
 
 
 # ----------------------------------------------------------------------
-# Fetch all tickers (same as your version, unchanged)
+# Fetch all tickers from Polygon
 # ----------------------------------------------------------------------
+
+# TODO: consider a shared Polygon client module for pagination/backoff logic
+#       so polygon_instruments + instrument_focus_universe don’t diverge.
+
 def fetch_all_tickers():
     base_url = "https://api.polygon.io/v3/reference/tickers"
     params = {
@@ -136,16 +198,10 @@ def fetch_all_tickers():
     try:
         while True:
             if next_url == base_url:
-                print(
-                    f"[polygon_instruments] Fetching page {page}: {base_url} "
-                    f"params={params}"
-                )
+                log.info(f"Fetching page {page}: {base_url} params={params}")
                 resp = requests.get(base_url, params=params, timeout=30)
             else:
-                print(
-                    f"[polygon_instruments] Fetching page {page}: {next_url} "
-                    f"(apiKey only)"
-                )
+                log.info(f"Fetching page {page}: {next_url} (apiKey only)")
                 resp = requests.get(
                     next_url,
                     params={"apiKey": POLYGON_API_KEY},
@@ -155,8 +211,8 @@ def fetch_all_tickers():
             resp.raise_for_status()
             data = resp.json()
 
-            results = data.get("results", [])
-            print(f"[polygon_instruments]  Received {len(results)} instruments")
+            results = data.get("results", []) or []
+            log.info(f"Received {len(results)} instruments on page {page}")
 
             for t in results:
                 upsert_instrument(cur, t)
@@ -170,7 +226,7 @@ def fetch_all_tickers():
 
             page += 1
 
-        print(f"[polygon_instruments] Done. Upserted/checked ~{updates} instruments.")
+        log.info(f"Done. Upserted/checked ~{updates} instruments.")
 
     finally:
         cur.close()

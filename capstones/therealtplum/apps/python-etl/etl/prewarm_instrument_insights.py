@@ -1,6 +1,7 @@
 import os
 import time
 import logging
+from typing import Any, Dict, List, Optional
 
 import psycopg2
 import requests
@@ -24,18 +25,21 @@ HORIZON_DAYS = int(os.getenv("FOCUS_PREWARM_HORIZON_DAYS", "30"))
 # Small delay between OpenAI calls so we don't hammer anything
 SLEEP_SECONDS = float(os.getenv("FOCUS_PREWARM_SLEEP_SECONDS", "0.4"))
 
-
 logging.basicConfig(
     level=logging.INFO,
     format="[prewarm_insights] %(message)s",
 )
+log = logging.getLogger(__name__)
 
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
 
-def get_latest_focus_snapshot(cur):
+def get_latest_focus_snapshot(cur) -> Optional[Any]:
+    """
+    Return the latest as_of_date from instrument_focus_universe, or None.
+    """
     cur.execute("SELECT MAX(as_of_date) FROM instrument_focus_universe")
     row = cur.fetchone()
     if not row or row[0] is None:
@@ -43,7 +47,10 @@ def get_latest_focus_snapshot(cur):
     return row[0]
 
 
-def get_focus_instruments(cur, as_of_date, limit):
+def get_focus_instruments(cur, as_of_date, limit: int) -> List[Dict[str, Any]]:
+    """
+    Fetch the top focus instruments for a given as_of_date, ordered by global activity rank.
+    """
     cur.execute(
         """
         SELECT
@@ -86,7 +93,7 @@ def call_insight_api(instrument_id: int, kind: str) -> str:
 
     resp = requests.get(url, params=params, timeout=60)
     if resp.status_code == 404:
-        logging.warning(f"instrument_id={instrument_id} not found for kind={kind}")
+        log.warning(f"instrument_id={instrument_id} not found for kind={kind}")
         return "not_found"
 
     resp.raise_for_status()
@@ -98,7 +105,11 @@ def call_insight_api(instrument_id: int, kind: str) -> str:
 
 
 def prewarm():
-    logging.info(f"Starting prewarm job (limit={FOCUS_LIMIT}, horizon={HORIZON_DAYS}d)")
+    """
+    For the most recent focus snapshot, prewarm 'overview' and 'recent' insights
+    for the top N focus instruments by global activity rank.
+    """
+    log.info(f"Starting prewarm job (limit={FOCUS_LIMIT}, horizon={HORIZON_DAYS}d)")
 
     conn = get_conn()
     cur = conn.cursor()
@@ -106,22 +117,25 @@ def prewarm():
     try:
         as_of = get_latest_focus_snapshot(cur)
         if as_of is None:
-            logging.error("No instrument_focus_universe snapshots found; aborting.")
+            log.error("No instrument_focus_universe snapshots found; aborting.")
             return
 
-        logging.info(f"Using focus snapshot as_of_date={as_of}")
+        log.info(f"Using focus snapshot as_of_date={as_of}")
 
         focus_rows = get_focus_instruments(cur, as_of, FOCUS_LIMIT)
         if not focus_rows:
-            logging.error("No focus instruments found; aborting.")
+            log.error("No focus instruments found; aborting.")
             return
 
-        logging.info(f"Loaded {len(focus_rows)} focus instruments.")
+        log.info(f"Loaded {len(focus_rows)} focus instruments.")
 
         total_calls = 0
         total_llm = 0
         total_cache = 0
 
+        # TODO: if this ever needs to scale, consider:
+        #   - batching or async concurrency (with careful rate limiting),
+        #   - or a worker-queue model instead of a single serial job.
         for idx, row in enumerate(focus_rows, start=1):
             inst_id = row["instrument_id"]
             ticker = row["ticker"]
@@ -135,19 +149,19 @@ def prewarm():
                     elif source == "cache":
                         total_cache += 1
 
-                    logging.info(
+                    log.info(
                         f"[{idx}/{len(focus_rows)}] {ticker} ({inst_id}) "
                         f"kind={kind} source={source}"
                     )
                 except Exception as e:
-                    logging.error(
+                    log.error(
                         f"Error prewarming insight kind={kind} for "
                         f"{ticker} ({inst_id}): {e}"
                     )
 
                 time.sleep(SLEEP_SECONDS)
 
-        logging.info(
+        log.info(
             f"Done prewarming. calls={total_calls}, "
             f"from_cache={total_cache}, from_llm={total_llm}"
         )
