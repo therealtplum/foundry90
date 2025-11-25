@@ -15,6 +15,7 @@ use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
 use rust_decimal::Decimal;
+use tower_http::cors::{Any, CorsLayer};
 
 /// Shared application state
 #[derive(Clone)]
@@ -243,10 +244,16 @@ async fn main() -> anyhow::Result<()> {
         info!("OPENAI_API_KEY not set; insight generation will fall back to cache-only.");
     }
 
-    let state = AppState {
+        let state = AppState {
         db_pool,
         chat_client,
     };
+
+    // Permissive CORS for local dev: allow web on :3001 to hit API on :3000
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
 
     let app = Router::new()
         .route("/health", get(health_handler))
@@ -258,7 +265,8 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);
 
     let port: u16 = env::var("PORT")
         .ok()

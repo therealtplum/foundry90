@@ -235,7 +235,7 @@ body.f90-body {
   font-size: 28px;
   font-weight: 600;
   margin-bottom: 24px;
-  color: var(--f90-text-bold);
+  color: var(--f90-text);
 }
 
 /* Footer */
@@ -309,5 +309,238 @@ body.f90-body {
   }
   50% {
     border-color: var(--f90-accent);
+  }
+}
+
+/* Coming soon section */
+.f90-capstones-coming {
+  position: relative;
+  overflow: hidden;
+  min-height: 50vh;
+  background: radial-gradient(
+    circle at top left,
+    #0b2216 0,
+    #050608 55%,
+    #000000 100%
+  );
+  border-top: 1px solid rgba(67, 255, 138, 0.12);
+  border-bottom: 1px solid rgba(67, 255, 138, 0.12);
+}
+
+/* Overlay text */
+.f90-capstones-overlay {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 16px;
+  text-align: center;
+}
+
+.f90-coming-soon-title {
+  font-size: clamp(40px, 6vw, 64px);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #43ff8a;
+  text-shadow: 0 0 14px rgba(67, 255, 138, 0.8);
+  margin-bottom: 12px;
+}
+
+.f90-coming-soon-subtitle {
+  font-size: 14px;
+  color: var(--f90-text-soft, #9ca3af);
+}
+
+/* ===================================================================== */
+/*  FULL-SCREEN FMHUB BOARD + NEON TICKER STRIP                          */
+/* ===================================================================== */
+
+/* Root wrappers for the capstones board page */
+
+.fmhub-board-root {
+  min-height: 100vh;
+  background: #000000;
+  color: #a7f3c5;
+  position: relative;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+}
+
+.fmhub-board-status {
+  min-height: 100vh;
+  background: #000000;
+  color: #43ff8a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
+/* Ticker background */
+
+.f90-ticker-strip {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.95;
+  pointer-events: auto; /* needed for hover pause */
+}
+
+/* Each row is absolutely positioned and scrolls horizontally */
+
+.f90-ticker-row {
+  display: inline-flex;
+  white-space: nowrap;
+  gap: 18px;
+  padding: 6px 0;
+  position: absolute;
+  left: -50%;
+  right: -50%;
+}
+
+/* Alternate directions + durations */
+
+.f90-ticker-row-left {
+  animation: f90-scroll-left 28s linear infinite;
+}
+
+.f90-ticker-row-right {
+  animation: f90-scroll-right 34s linear infinite;
+}
+
+/* Six rows, staggered vertically */
+
+.f90-ticker-row:nth-child(1) {
+  top: 10%;
+}
+.f90-ticker-row:nth-child(2) {
+  top: 25%;
+}
+.f90-ticker-row:nth-child(3) {
+  top: 40%;
+}
+.f90-ticker-row:nth-child(4) {
+  top: 55%;
+}
+.f90-ticker-row:nth-child(5) {
+  top: 70%;
+}
+.f90-ticker-row:nth-child(6) {
+  top: 85%;
+}
+
+/* Pause all animations when hovered */
+
+.f90-ticker-strip-paused .f90-ticker-row {
+  animation-play-state: paused;
+}
+
+/* Ticker chips */
+
+.f90-ticker-chip {
+  border: 1px solid rgba(67, 255, 138, 0.45);
+  border-radius: 999px;
+  background: rgba(3, 10, 6, 0.96);
+  padding: 5px 18px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: #a7f3c5;
+  cursor: pointer;
+  box-shadow:
+    0 0 4px rgba(67, 255, 138, 0.25),
+    inset 0 0 0 1px rgba(5, 6, 8, 0.9);
+  transition:
+    background 120ms ease-out,
+    transform 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.f90-ticker-chip:hover {
+  background: rgba(8, 31, 17, 0.98);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 10px rgba(67, 255, 138, 0.7),
+    0 0 26px rgba(67, 255, 138, 0.3);
+}
+
+.f90-ticker-symbol {
+  font-weight: 700;
+  color: #43ff8a; /* neon */
+}
+
+.f90-ticker-price {
+  opacity: 0.9;
+}
+
+/* Optional insight card (if you ever bring it back) */
+
+.f90-ticker-insight {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  max-width: min(420px, 80vw);
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: radial-gradient(circle at top left, #0b2216, #050608);
+  border: 1px solid rgba(67, 255, 138, 0.45);
+  box-shadow:
+    0 0 24px rgba(67, 255, 138, 0.4),
+    0 0 64px rgba(0, 0, 0, 0.85);
+  z-index: 15;
+}
+
+.f90-ticker-insight-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.f90-ticker-insight-symbol {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    "Liberation Mono", "Courier New", monospace;
+  font-weight: 700;
+  color: #43ff8a;
+}
+
+.f90-ticker-insight-name {
+  font-size: 12px;
+  color: var(--f90-text-soft, #9ca3af);
+}
+
+.f90-ticker-insight-body {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e5e7eb;
+}
+
+/* keyframes */
+
+@keyframes f90-scroll-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes f90-scroll-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
   }
 }

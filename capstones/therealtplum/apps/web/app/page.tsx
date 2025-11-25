@@ -19,13 +19,13 @@ export default function HomePage() {
           </p>
 
           <div className="f90-hero-actions">
-            <Link href="#capstones" className="f90-btn f90-btn-primary">
+            <Link href="capstones" className="f90-btn f90-btn-primary">
               Explore capstones
             </Link>
           </div>
 
           <div className="f90-hero-meta">
-            <span>Rust · Python · Next.js · Postgres · Swift</span>
+            <span>Rust · Python · Next.js · Postgres · SwiftUI · LLM</span>
             <span className="f90-dot" />
             <span>90 days is all it takes</span>
           </div>
