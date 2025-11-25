@@ -25,9 +25,10 @@ export default function HomePage() {
           </div>
 
           <div className="f90-hero-meta">
-            <span>Rust · Python · Next.js · Postgres · SwiftUI · LLM</span>
-            <span className="f90-dot" />
-            <span>90 days is all it takes</span>
+            <div className="f90-hero-stack">
+              Rust · Python · Next.js · Postgres · SwiftUI · LLM · AWS
+            </div>
+            <span className="f90-hero-timeline">90 days is all it takes</span>
           </div>
         </div>
 
