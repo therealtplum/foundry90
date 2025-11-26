@@ -97,8 +97,13 @@ export default function FocusTickerStrip() {
   }`;
 
   // Don’t create more rows than we have items
-  const rowCount = Math.min(6, items.length);
+  const MAX_ROWS = 8;
+  const MIN_ITEMS_PER_ROW = 14; // tune this
 
+  const rowCount = Math.min(
+    MAX_ROWS,
+    Math.max(1, Math.floor(items.length / MIN_ITEMS_PER_ROW)),
+  );
   // Partition items so each ticker belongs to exactly one row
   const baseCount = Math.floor(items.length / rowCount);
   const remainder = items.length % rowCount;
