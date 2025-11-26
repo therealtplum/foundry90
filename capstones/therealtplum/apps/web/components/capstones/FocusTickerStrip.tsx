@@ -92,68 +92,77 @@ export default function FocusTickerStrip() {
     );
   }
 
-    const stripClassName = `f90-ticker-strip${
+  const stripClassName = `f90-ticker-strip${
     isHovered ? " f90-ticker-strip-paused" : ""
   }`;
 
-  const rows = 6;
-  const rowIndexes = Array.from({ length: rows }, (_, i) => i);
+  // Don’t create more rows than we have items
+  const rowCount = Math.min(6, items.length);
 
-  // How many distinct tickers to show per row before we repeat
-  const ITEMS_PER_ROW = Math.min(items.length, 16);
+  // Partition items so each ticker belongs to exactly one row
+  const baseCount = Math.floor(items.length / rowCount);
+  const remainder = items.length % rowCount;
+
+  const rowPartitions: FocusTickerWithInsights[][] = [];
+  let cursor = 0;
+
+  for (let r = 0; r < rowCount; r++) {
+    const extra = r < remainder ? 1 : 0; // first few rows get one extra
+    const count = baseCount + extra;
+    if (count <= 0) {
+      rowPartitions.push([]);
+      continue;
+    }
+    const rowItems = items.slice(cursor, cursor + count);
+    cursor += count;
+    rowPartitions.push(rowItems);
+  }
 
   return (
-    <div
-      className={stripClassName}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {rowIndexes.map((rowIndex) => {
-        const directionClass =
-          rowIndex % 2 === 0 ? "f90-ticker-row-left" : "f90-ticker-row-right";
+    <>
+      <div
+        className={stripClassName}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {rowPartitions.map((rowItems, rowIndex) => {
+          const directionClass =
+            rowIndex % 2 === 0 ? "f90-ticker-row-left" : "f90-ticker-row-right";
 
-        // Offset the starting index for each row so they don't all share the same order
-        const offset =
-          (rowIndex * Math.ceil(items.length / rows)) % items.length;
-
-        const rowItems = Array.from({ length: ITEMS_PER_ROW }, (_, i) => {
-          const idx = (offset + i) % items.length;
-          return items[idx];
-        });
-
-        return (
-          <div
-            key={rowIndex}
-            className={`f90-ticker-row ${directionClass}`}
-          >
-            {/* duplicate the row's sequence twice so it scrolls seamlessly */}
-            {[0, 1].map((loop) => (
-              <span key={loop}>
-                {rowItems.map((item, idx) => (
-                  <button
-                    key={`${rowIndex}-${loop}-${idx}-${item.instrument_id ?? item.ticker}`}
-                    type="button"
-                    className="f90-ticker-chip"
-                    onClick={() =>
-                      setSelected((prev) =>
-                        prev && prev.ticker === item.ticker ? null : item,
-                      )
-                    }
-                  >
-                    <span className="f90-ticker-symbol">{item.ticker}</span>
-                    <span>{item.name}</span>
-                    {item.last_close_price && (
-                      <span className="f90-ticker-price">
-                        ${formatPrice(item.last_close_price as any)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </span>
-            ))}
-          </div>
-        );
-      })}
+          return (
+            <div
+              key={rowIndex}
+              className={`f90-ticker-row ${directionClass}`}
+            >
+              {/* duplicate this row’s sequence twice for continuous scroll */}
+              {[0, 1].map((loop) => (
+                <span key={loop}>
+                  {rowItems.map((item, idx) => (
+                    <button
+                      key={`${rowIndex}-${loop}-${idx}-${item.instrument_id ?? item.ticker}`}
+                      type="button"
+                      className="f90-ticker-chip"
+                      onClick={() =>
+                        setSelected((prev) =>
+                          prev && prev.ticker === item.ticker ? null : item,
+                        )
+                      }
+                    >
+                      <span className="f90-ticker-symbol">{item.ticker}</span>
+                      <span>{item.name}</span>
+                      {item.last_close_price && (
+                        <span className="f90-ticker-price">
+                          ${formatPrice(item.last_close_price as any)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </span>
+              ))}
+            </div>
+          );
+        })}
+      </div>
 
       {selected && (
         <div className="f90-ticker-insight">
@@ -168,6 +177,6 @@ export default function FocusTickerStrip() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
