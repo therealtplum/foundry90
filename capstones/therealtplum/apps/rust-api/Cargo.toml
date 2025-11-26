@@ -25,3 +25,5 @@ home = "=0.5.11"
 chrono = { version = "0.4", features = ["serde"] }
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1", features = ["serde"] }
+redis = { version = "0.26", features = ["tokio-comp"] }
+deadpool-redis = "0.16"
