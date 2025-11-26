@@ -57,8 +57,8 @@ function computeChange(
   const last = item.last_close_price
     ? parseFloat(String(item.last_close_price))
     : NaN;
-  const prior = item.prior_day_last_close_price
-    ? parseFloat(String(item.prior_day_last_close_price))
+  const prior = (item as any).prior_day_last_close_price
+    ? parseFloat(String((item as any).prior_day_last_close_price))
     : NaN;
 
   if (!isFinite(last) || !isFinite(prior) || prior === 0) {
@@ -139,15 +139,11 @@ export default function FocusTickerStrip() {
   });
 
   const selectedChange = selected ? computeChange(selected) : null;
-  const pillClassName =
-    "f90-ticker-insight" +
-    (selectedChange
-      ? selectedChange.direction === "up"
-        ? " f90-ticker-insight-up"
-        : selectedChange.direction === "down"
-        ? " f90-ticker-insight-down"
-        : " f90-ticker-insight-flat"
-      : "");
+  const pillClassName = `f90-ticker-insight ${
+    selectedChange
+      ? `f90-ticker-insight-${selectedChange.direction}`
+      : "f90-ticker-insight-flat"
+  }`;
 
   return (
     <>
@@ -168,28 +164,55 @@ export default function FocusTickerStrip() {
               {/* duplicate this row’s sequence twice for continuous scroll */}
               {[0, 1].map((loop) => (
                 <span key={loop}>
-                  {rowItems.map((item, idx) => (
-                    <button
-                      key={`${rowIndex}-${loop}-${idx}-${
-                        item.instrument_id ?? item.ticker
-                      }`}
-                      type="button"
-                      className="f90-ticker-chip"
-                      onClick={() =>
-                        setSelected((prev) =>
-                          prev && prev.ticker === item.ticker ? null : item,
-                        )
-                      }
-                    >
-                      <span className="f90-ticker-symbol">{item.ticker}</span>
-                      <span>{item.name}</span>
-                      {item.last_close_price && (
-                        <span className="f90-ticker-price">
-                          ${formatPrice(item.last_close_price as any)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  {rowItems.map((item, idx) => {
+                    const change = computeChange(item);
+                    const chipClassName =
+                      "f90-ticker-chip " +
+                      (change
+                        ? `f90-ticker-chip-${change.direction}`
+                        : "f90-ticker-chip-flat");
+
+                    return (
+                      <button
+                        key={`${rowIndex}-${loop}-${idx}-${
+                          item.instrument_id ?? item.ticker
+                        }`}
+                        type="button"
+                        className={chipClassName}
+                        onClick={() =>
+                          setSelected((prev) =>
+                            prev && prev.ticker === item.ticker ? null : item,
+                          )
+                        }
+                      >
+                        <span className="f90-ticker-symbol">{item.ticker}</span>
+
+                        {change && (
+                          <span
+                            className={`f90-ticker-chip-change f90-ticker-chip-change-${change.direction}`}
+                          >
+                            <span className="f90-ticker-chip-change-arrow">
+                              {change.direction === "up"
+                                ? "▲"
+                                : change.direction === "down"
+                                ? "▼"
+                                : "●"}
+                            </span>
+                            <span className="f90-ticker-chip-change-pct">
+                              {change.pctStr}
+                            </span>
+                          </span>
+                        )}
+
+                        <span>{item.name}</span>
+                        {item.last_close_price && (
+                          <span className="f90-ticker-price">
+                            ${formatPrice(item.last_close_price as any)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </span>
               ))}
             </div>

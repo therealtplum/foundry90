@@ -346,6 +346,11 @@ body.f90-body {
   z-index: 0;
   opacity: 0.95;
   pointer-events: auto;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 10vh 0; /* top/bottom breathing room */
 }
 
 /* Rows */
@@ -355,9 +360,7 @@ body.f90-body {
   white-space: nowrap;
   gap: 18px;
   padding: 6px 0;
-  position: absolute;
-  left: -50%;
-  right: -50%;
+  position: relative;
 }
 
 .f90-ticker-row-left {
@@ -366,27 +369,6 @@ body.f90-body {
 
 .f90-ticker-row-right {
   animation: f90-scroll-right 34s linear infinite;
-}
-
-/* Vertical stagger */
-
-.f90-ticker-row:nth-child(1) {
-  top: 10%;
-}
-.f90-ticker-row:nth-child(2) {
-  top: 25%;
-}
-.f90-ticker-row:nth-child(3) {
-  top: 40%;
-}
-.f90-ticker-row:nth-child(4) {
-  top: 55%;
-}
-.f90-ticker-row:nth-child(5) {
-  top: 70%;
-}
-.f90-ticker-row:nth-child(6) {
-  top: 85%;
 }
 
 /* Pause */
@@ -437,6 +419,61 @@ body.f90-body {
   opacity: 0.9;
 }
 
+/* Chip variants by direction */
+
+.f90-ticker-chip-up {
+  border-color: rgba(34, 197, 94, 0.9);
+  box-shadow:
+    0 0 6px rgba(34, 197, 94, 0.6),
+    inset 0 0 0 1px rgba(5, 6, 8, 0.95);
+}
+
+.f90-ticker-chip-down {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    0 0 6px rgba(248, 113, 113, 0.6),
+    inset 0 0 0 1px rgba(5, 6, 8, 0.95);
+}
+
+.f90-ticker-chip-flat {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+/* Inline change badge inside chip */
+
+.f90-ticker-chip-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.f90-ticker-chip-change-up {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+}
+
+.f90-ticker-chip-change-down {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+}
+
+.f90-ticker-chip-change-flat {
+  background: rgba(148, 163, 184, 0.16);
+  color: #e5e7eb;
+}
+
+.f90-ticker-chip-change-arrow {
+  font-size: 11px;
+}
+
+.f90-ticker-chip-change-pct {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Keyframes */
 
 @keyframes f90-scroll-left {
@@ -479,6 +516,8 @@ body.f90-body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
     "Segoe UI", sans-serif;
   color: var(--f90-text);
+
+  animation: f90-pill-in 180ms ease-out;
 }
 
 /* Direction variants */
@@ -567,4 +606,15 @@ body.f90-body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--f90-text);
+}
+
+@keyframes f90-pill-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
