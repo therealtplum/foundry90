@@ -2,5 +2,9 @@
 import FocusTickerStrip from "./FocusTickerStrip";
 
 export default function TickerBoard() {
-  return <FocusTickerStrip />;
+  return (
+    <div className="fmhub-board-root">
+      <FocusTickerStrip />
+    </div>
+  );
 }
