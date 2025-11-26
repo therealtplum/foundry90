@@ -12,7 +12,6 @@ final class SystemHealthViewModel: ObservableObject {
 
     private let service: SystemHealthServiceType
 
-    // Allow passing a mock in tests, default to real service otherwise
     init(service: SystemHealthServiceType? = nil) {
         self.service = service ?? SystemHealthService()
 
@@ -32,9 +31,8 @@ final class SystemHealthViewModel: ObservableObject {
             self.health = health
 
             self.dbTables = (health.dbTables ?? [])
-                .sorted {
-                    $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
-                }
+                .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+
         } catch {
             self.health = nil
             self.dbTables = []

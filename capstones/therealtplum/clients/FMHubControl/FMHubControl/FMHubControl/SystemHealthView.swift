@@ -6,10 +6,7 @@ struct SystemHealthView: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [
-                    Color.black,
-                    Color(red: 0.02, green: 0.06, blue: 0.12)
-                ],
+                colors: [Color.black, Color(red: 0.02, green: 0.06, blue: 0.12)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -34,7 +31,6 @@ struct SystemHealthView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("System Health")
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
-
                 Text("FMHub stack status · local")
                     .font(.subheadline)
                     .foregroundColor(.white.opacity(0.6))
@@ -47,18 +43,15 @@ struct SystemHealthView: View {
             Button {
                 Task { await viewModel.refresh() }
             } label: {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .controlSize(.small)
-                } else {
-                    Text("Refresh")
-                }
+                viewModel.isLoading
+                    ? AnyView(ProgressView().controlSize(.small))
+                    : AnyView(Text("Refresh"))
             }
             .buttonStyle(.borderedProminent)
         }
     }
 
-    // MARK: - Status Row
+    // MARK: - Status row
 
     private var statusRow: some View {
         HStack(spacing: 16) {
@@ -96,7 +89,7 @@ struct SystemHealthView: View {
         .cornerRadius(16)
     }
 
-    // MARK: - DB Schema Panel
+    // MARK: - DB table list
 
     private var dbSchemaPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -116,8 +109,7 @@ struct SystemHealthView: View {
             if viewModel.dbTables.isEmpty {
                 if viewModel.isLoading {
                     HStack(spacing: 8) {
-                        ProgressView()
-                            .controlSize(.small)
+                        ProgressView().controlSize(.small)
                         Text("Loading table list…")
                             .font(.subheadline)
                             .foregroundColor(.white.opacity(0.6))
@@ -155,7 +147,7 @@ struct SystemHealthView: View {
                     }
                     .padding(.vertical, 4)
                 }
-                .frame(maxHeight: 160) // keeps it compact; scales to hundreds of tables
+                .frame(maxHeight: 160)
             }
         }
         .padding(16)
@@ -168,7 +160,7 @@ struct SystemHealthView: View {
         .cornerRadius(16)
     }
 
-    // MARK: - ETL Panel
+    // MARK: - ETL panel
 
     private var etlPanel: some View {
         VStack(alignment: .leading, spacing: 12) {

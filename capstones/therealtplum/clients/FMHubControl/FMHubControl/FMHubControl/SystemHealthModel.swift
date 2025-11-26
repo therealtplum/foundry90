@@ -1,42 +1,57 @@
 import Foundation
+import SwiftUI
+import Combine
 
-// Mirrors the JSON from /system/health
-struct SystemHealth: Codable {
-    let api: String
-    let db: String
-    let redis: String
-    let lastEtlRunUtc: String?
-    let etlStatus: String
-    let recentErrors: Int
-    let dbTables: [String]?
+@MainActor
+final class SystemHealthModel: ObservableObject {
+    @Published var systemHealth: SystemHealth?
+    @Published var isLoading = true
+    @Published var error: String?
 
-    enum CodingKeys: String, CodingKey {
-        case api
-        case db
-        case redis
-        case lastEtlRunUtc = "last_etl_run_utc"
-        case etlStatus = "etl_status"
-        case recentErrors = "recent_errors"
-        case dbTables = "db_tables"
+    func update(with health: SystemHealth) {
+        systemHealth = health
+        isLoading = false
+        error = nil
+    }
+
+    func updateError(_ message: String) {
+        error = message
+        isLoading = false
     }
 }
 
-protocol SystemHealthServiceType {
-    func fetchHealth() async throws -> SystemHealth
-}
-
-struct SystemHealthService: SystemHealthServiceType {
-    let baseURL: URL
-
-    // NOTE: This is a plain struct, NOT @MainActor.
-    init(baseURL: URL = URL(string: "http://127.0.0.1:3000")!) {
-        self.baseURL = baseURL
+// MARK: - ETL helpers
+extension SystemHealthModel {
+    var etlStatusText: String {
+        systemHealth?.etlStatus.capitalized ?? "Unknown"
     }
 
-    func fetchHealth() async throws -> SystemHealth {
-        let url = baseURL.appendingPathComponent("system/health")
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let decoder = JSONDecoder()
-        return try decoder.decode(SystemHealth.self, from: data)
+    var etlStatusColor: Color {
+        guard let status = systemHealth?.etlStatus.lowercased() else { return .gray }
+
+        switch status {
+        case "idle": return .green
+        case "running": return .orange
+        case "error": return .red
+        default: return .gray
+        }
+    }
+
+    var lastEtlRunRelative: String {
+        guard
+            let raw = systemHealth?.lastEtlRunUtc
+        else { return "Never" }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions.insert(.withFractionalSeconds)
+
+        guard let date = formatter.date(from: raw) else {
+            return raw
+        }
+
+        let rel = RelativeDateTimeFormatter()
+        rel.unitsStyle = .full
+
+        return rel.localizedString(for: date, relativeTo: Date())
     }
 }

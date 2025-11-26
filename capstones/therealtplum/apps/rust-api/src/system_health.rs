@@ -1,6 +1,6 @@
 use axum::{extract::State, Json};
 use serde::Serialize;
-use sqlx::Row;
+use sqlx::{Row, PgPool};
 use tracing::{error, info};
 
 use crate::AppState;
@@ -15,6 +15,60 @@ pub struct SystemHealth {
     pub etl_status: String,
     pub recent_errors: i32,
     pub db_tables: Vec<String>,
+}
+
+/// Safely derive last_etl_run_utc from instrument_focus_universe.as_of_date.
+///
+/// This:
+/// - never panics
+/// - returns None on any error or if the table is empty
+/// - logs what it’s doing
+async fn get_last_etl_run_utc(pool: &PgPool) -> Option<String> {
+    let query = r#"
+        SELECT
+            to_char(
+                MAX(as_of_date),
+                'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+            ) AS last_run_utc
+        FROM instrument_focus_universe
+    "#;
+
+    let result = sqlx::query(query)
+        .fetch_optional(pool)
+        .await;
+
+    match result {
+        Ok(Some(row)) => {
+            let val: Result<String, _> = row.try_get("last_run_utc");
+            match val {
+                Ok(s) if !s.is_empty() => {
+                    info!(
+                        "Derived last_etl_run_utc from instrument_focus_universe.as_of_date: {}",
+                        s
+                    );
+                    Some(s)
+                }
+                Ok(_) => {
+                    // Empty string from to_char → treat as no ETL info.
+                    None
+                }
+                Err(err) => {
+                    error!("Failed to read last_run_utc column: {err}");
+                    None
+                }
+            }
+        }
+        Ok(None) => {
+            // No rows (empty table)
+            None
+        }
+        Err(err) => {
+            error!(
+                "Failed to fetch last_etl_run_utc from instrument_focus_universe: {err}"
+            );
+            None
+        }
+    }
 }
 
 pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHealth> {
@@ -66,8 +120,6 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     // --------------------------------------------------
     let redis_status = match state.redis_pool.get().await {
         Ok(mut conn) => {
-            // This matches the official deadpool-redis example style:
-            // cmd("PING").query_async::<String>(&mut conn).await
             match cmd("PING").query_async::<String>(&mut conn).await {
                 Ok(reply) => {
                     info!("Redis PING reply: {reply}");
@@ -86,9 +138,11 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     };
 
     // --------------------------------------------------
-    // ETL status (stubbed for now)
+    // ETL status + last run (best-effort)
     // --------------------------------------------------
-    let last_etl_run_utc = None;
+    let last_etl_run_utc = get_last_etl_run_utc(&state.db_pool).await;
+
+    // v1: just expose "idle" plus a last-run timestamp inferred from DB.
     let etl_status = "idle".to_string();
     let recent_errors = 0;
 
