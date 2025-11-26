@@ -4,6 +4,8 @@ import Combine
 @MainActor
 final class SystemHealthViewModel: ObservableObject {
     @Published var health: SystemHealth?
+    @Published var dbTables: [String] = []
+
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var autoRefresh = true
@@ -26,11 +28,16 @@ final class SystemHealthViewModel: ObservableObject {
         errorMessage = nil
 
         do {
-            let result = try await service.fetchHealth()
-            self.health = result
+            let health = try await service.fetchHealth()
+            self.health = health
+
+            self.dbTables = (health.dbTables ?? [])
+                .sorted {
+                    $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
+                }
         } catch {
-            // NEW: clear the old "up" state
             self.health = nil
+            self.dbTables = []
             self.errorMessage = error.localizedDescription
         }
 

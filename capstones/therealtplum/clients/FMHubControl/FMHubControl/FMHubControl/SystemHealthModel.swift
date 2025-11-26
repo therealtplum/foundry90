@@ -8,6 +8,7 @@ struct SystemHealth: Codable {
     let lastEtlRunUtc: String?
     let etlStatus: String
     let recentErrors: Int
+    let dbTables: [String]?
 
     enum CodingKeys: String, CodingKey {
         case api
@@ -16,6 +17,7 @@ struct SystemHealth: Codable {
         case lastEtlRunUtc = "last_etl_run_utc"
         case etlStatus = "etl_status"
         case recentErrors = "recent_errors"
+        case dbTables = "db_tables"
     }
 }
 
