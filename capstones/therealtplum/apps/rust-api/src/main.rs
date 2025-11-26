@@ -72,8 +72,8 @@ struct NewsArticleDto {
     published_at: DateTime<Utc>,
 }
 
-/// Instrument insight record from DB
-#[derive(Debug, Serialize, FromRow)]
+/// Instrument insight record from DB (and for Redis cache)
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 struct InstrumentInsightRecord {
     id: i64,
     content_markdown: String,
@@ -229,7 +229,6 @@ impl ChatClient {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Logging setup
     tracing_subscriber::registry()
         .with(
             EnvFilter::try_from_default_env()
@@ -240,7 +239,7 @@ async fn main() -> anyhow::Result<()> {
 
     dotenvy::dotenv().ok();
 
-    // --- Redis setup ---
+    // Redis
     let redis_url = env::var("REDIS_URL")
         .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
 
@@ -252,7 +251,7 @@ async fn main() -> anyhow::Result<()> {
         .create_pool(Some(deadpool_redis::Runtime::Tokio1))
         .expect("Failed to create Redis pool");
 
-    // Default for local dev with `cargo run`
+    // Postgres
     let default_db_url = "postgres://app:app@localhost:5433/fmhub".to_string();
     let database_url = env::var("DATABASE_URL").unwrap_or(default_db_url);
 
@@ -271,7 +270,7 @@ async fn main() -> anyhow::Result<()> {
         chat_client,
     };
 
-    // Permissive CORS for local dev
+    // CORS
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -457,6 +456,7 @@ async fn list_instrument_news_handler(
     }
 }
 
+/// LLM insight handler with Redis cache + DB + LLM fallback
 async fn get_instrument_insight_handler(
     State(state): State<AppState>,
     Path((id, kind)): Path<(i64, String)>,
@@ -464,9 +464,54 @@ async fn get_instrument_insight_handler(
 ) -> impl IntoResponse {
     let horizon_days = params.horizon_days.unwrap_or(30);
     let kind = kind.to_lowercase();
+    let cache_key = format!("instrument_insight:{}:{}", id, kind);
+    let ttl_seconds: u64 = 3600;
 
-    // 1. Try latest cached insight from DB
-    let cached = sqlx::query_as::<_, InstrumentInsightRecord>(
+    // 0. Redis cache
+    if let Ok(mut conn) = state.redis_pool.get().await {
+        match conn.get::<_, Option<String>>(&cache_key).await {
+            Ok(Some(cached)) => {
+                match serde_json::from_str::<InstrumentInsightRecord>(&cached) {
+                    Ok(rec) => {
+                        info!(
+                            "instrument_insight cache hit (key={}, id={}, kind={})",
+                            cache_key, id, kind
+                        );
+                        return (
+                            StatusCode::OK,
+                            Json(json!({
+                                "source": "cache",
+                                "insight": rec,
+                            })),
+                        );
+                    }
+                    Err(err) => {
+                        error!(
+                            "instrument_insight: failed to deserialize cached value (key={}): {}",
+                            cache_key, err
+                        );
+                    }
+                }
+            }
+            Ok(None) => {
+                info!(
+                    "instrument_insight cache miss (key={}): no value present",
+                    cache_key
+                );
+            }
+            Err(err) => {
+                info!(
+                    "instrument_insight cache GET error (key={}): {}",
+                    cache_key, err
+                );
+            }
+        }
+    } else {
+        error!("instrument_insight: failed to get Redis connection from pool");
+    }
+
+    // 1. DB cache
+    let cached_db = sqlx::query_as::<_, InstrumentInsightRecord>(
         r#"
         SELECT
             id,
@@ -485,19 +530,28 @@ async fn get_instrument_insight_handler(
     .fetch_optional(&state.db_pool)
     .await;
 
-    match cached {
+    match cached_db {
         Ok(Some(rec)) => {
+            // best-effort backfill to Redis
+            if let Ok(payload) = serde_json::to_string(&rec) {
+                if let Ok(mut conn) = state.redis_pool.get().await {
+                    let _ = conn
+                        .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                        .await;
+                }
+            }
+
             return (
                 StatusCode::OK,
                 Json(json!({
                     "source": "cache",
                     "insight": rec,
                 })),
-            )
+            );
         }
         Ok(None) => {
             info!(
-                "No cached insight for instrument_id={id}, kind={kind}; attempting LLM generation."
+                "No cached insight in DB for instrument_id={id}, kind={kind}; attempting LLM generation."
             );
         }
         Err(err) => {
@@ -509,7 +563,7 @@ async fn get_instrument_insight_handler(
         }
     }
 
-    // 2. If no cache, we may generate via LLM (if configured)
+    // 2. LLM generation (if configured)
     let chat_client = match &state.chat_client {
         Some(c) => c.clone(),
         None => {
@@ -573,7 +627,7 @@ async fn get_instrument_insight_handler(
         }
     };
 
-    // Persist new insight
+    // Persist new insight to DB
     let model_name = Some(chat_client.model.clone());
     let inserted = sqlx::query_as::<_, InstrumentInsightRecord>(
         r#"
@@ -599,13 +653,24 @@ async fn get_instrument_insight_handler(
     .await;
 
     match inserted {
-        Ok(rec) => (
-            StatusCode::OK,
-            Json(json!({
-                "source": "llm",
-                "insight": rec,
-            })),
-        ),
+        Ok(rec) => {
+            // Best-effort write to Redis
+            if let Ok(payload) = serde_json::to_string(&rec) {
+                if let Ok(mut conn) = state.redis_pool.get().await {
+                    let _ = conn
+                        .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                        .await;
+                }
+            }
+
+            (
+                StatusCode::OK,
+                Json(json!({
+                    "source": "llm",
+                    "insight": rec,
+                })),
+            )
+        }
         Err(err) => {
             error!("Failed to persist generated insight for {id}, kind={kind}: {err}");
             (
@@ -625,7 +690,7 @@ async fn get_focus_ticker_strip(
     let cache_key = format!("focus_ticker_strip:limit={}", limit);
     let ttl_seconds: u64 = 60;
 
-    // 1) Try cache
+    // 1) Try Redis
     if let Ok(mut conn) = state.redis_pool.get().await {
         match conn.get::<_, Option<String>>(&cache_key).await {
             Ok(Some(cached)) => {
@@ -663,7 +728,7 @@ async fn get_focus_ticker_strip(
         error!("focus_ticker_strip: failed to get Redis connection from pool");
     }
 
-    // 2) Fallback to DB
+    // 2) DB fallback
     let result = sqlx::query_as::<_, FocusTickerStripRow>(
         r#"
         WITH latest_focus AS (
@@ -709,11 +774,11 @@ async fn get_focus_ticker_strip(
 
     match result {
         Ok(rows) => {
-            // 3) Write-through to Redis (best-effort)
-            if let Ok(json_blob) = serde_json::to_string(&rows) {
+            // 3) Write-through to Redis
+            if let Ok(payload) = serde_json::to_string(&rows) {
                 if let Ok(mut conn) = state.redis_pool.get().await {
                     match conn
-                        .set_ex::<_, _, ()>(&cache_key, json_blob, ttl_seconds)
+                        .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
                         .await
                     {
                         Ok(()) => {
@@ -726,13 +791,15 @@ async fn get_focus_ticker_strip(
                         }
                         Err(err) => {
                             error!(
-                                "focus_ticker_strip: failed to SETEX cache (key={}): {}",
+                                "focus_ticker_strip cache SET error (key={}): {}",
                                 cache_key, err
                             );
                         }
                     }
                 } else {
-                    error!("focus_ticker_strip: failed to get Redis connection for SETEX");
+                    error!(
+                        "focus_ticker_strip: failed to get Redis connection from pool for SET"
+                    );
                 }
             }
 
