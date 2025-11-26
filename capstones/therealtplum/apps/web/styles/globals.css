@@ -358,17 +358,17 @@ body.f90-body {
 .f90-ticker-row {
   display: inline-flex;
   white-space: nowrap;
-  gap: 18px;
+  gap: 0;
   padding: 6px 0;
   position: relative;
 }
 
 .f90-ticker-row-left {
-  animation: f90-scroll-left 28s linear infinite;
+  animation: f90-scroll-left 18s linear infinite;
 }
 
 .f90-ticker-row-right {
-  animation: f90-scroll-right 34s linear infinite;
+  animation: f90-scroll-right 22s linear infinite;
 }
 
 /* Pause */
@@ -383,13 +383,13 @@ body.f90-body {
   border: 1px solid rgba(67, 255, 138, 0.45);
   border-radius: 999px;
   background: rgba(3, 10, 6, 0.96);
-  padding: 5px 18px;
+  padding: 7px 22px;
   display: inline-flex;
   align-items: baseline;
   gap: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-  font-size: 13px;
+  font-size: 14px;
   letter-spacing: 0.02em;
   color: #a7f3c5;
   cursor: pointer;
@@ -400,6 +400,7 @@ body.f90-body {
     background 120ms ease-out,
     transform 120ms ease-out,
     box-shadow 120ms ease-out;
+  margin-right: 18px;
 }
 
 .f90-ticker-chip:hover {
