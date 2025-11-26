@@ -16,13 +16,18 @@ use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
+
 mod system_health;
+
+use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
+use deadpool_redis::redis::AsyncCommands;
 
 /// Shared application state
 #[derive(Clone)]
-struct AppState {
-    db_pool: PgPool,
-    chat_client: Option<ChatClient>,
+pub struct AppState {
+    pub db_pool: PgPool,
+    pub redis_pool: RedisPool,
+    pub(crate) chat_client: Option<ChatClient>,
 }
 
 #[derive(Serialize)]
@@ -95,7 +100,7 @@ struct InsightQueryParams {
 
 // --- Focus ticker strip model ---
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize, FromRow)]
 struct FocusTickerStripRow {
     instrument_id: i64,
     ticker: String,
@@ -235,6 +240,18 @@ async fn main() -> anyhow::Result<()> {
 
     dotenvy::dotenv().ok();
 
+    // --- Redis setup ---
+    let redis_url = env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+
+    let mut redis_cfg = RedisConfig::default();
+    redis_cfg.url = Some(redis_url);
+    redis_cfg.connection = None;
+
+    let redis_pool = redis_cfg
+        .create_pool(Some(deadpool_redis::Runtime::Tokio1))
+        .expect("Failed to create Redis pool");
+
     // Default for local dev with `cargo run`
     let default_db_url = "postgres://app:app@localhost:5433/fmhub".to_string();
     let database_url = env::var("DATABASE_URL").unwrap_or(default_db_url);
@@ -250,10 +267,11 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         db_pool,
+        redis_pool,
         chat_client,
     };
 
-    // Permissive CORS for local dev: allow web on :3001 to hit API on :3000
+    // Permissive CORS for local dev
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods(Any)
@@ -545,8 +563,13 @@ async fn get_instrument_insight_handler(
     {
         Ok(t) => t,
         Err(err) => {
-            error!("LLM generation failed for instrument_id={id}, kind={kind}: {err}");
-            return (StatusCode::BAD_GATEWAY, Json(json!({"error": "llm_error"})));
+            error!(
+                "LLM generation failed for instrument_id={id}, kind={kind}: {err}"
+            );
+            return (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({"error": "llm_error"})),
+            );
         }
     };
 
@@ -593,12 +616,54 @@ async fn get_instrument_insight_handler(
     }
 }
 
+/// Focus ticker strip with Redis cache
 async fn get_focus_ticker_strip(
     State(state): State<AppState>,
     Query(params): Query<FocusStripParams>,
 ) -> impl IntoResponse {
     let limit = params.limit.unwrap_or(50).clamp(1, 500);
+    let cache_key = format!("focus_ticker_strip:limit={}", limit);
+    let ttl_seconds: u64 = 60;
 
+    // 1) Try cache
+    if let Ok(mut conn) = state.redis_pool.get().await {
+        match conn.get::<_, Option<String>>(&cache_key).await {
+            Ok(Some(cached)) => {
+                match serde_json::from_str::<Vec<FocusTickerStripRow>>(&cached) {
+                    Ok(rows) => {
+                        info!(
+                            "focus_ticker_strip cache hit (key={}, rows={})",
+                            cache_key,
+                            rows.len()
+                        );
+                        return (StatusCode::OK, Json(rows));
+                    }
+                    Err(err) => {
+                        error!(
+                            "focus_ticker_strip: failed to deserialize cached value (key={}): {}",
+                            cache_key, err
+                        );
+                    }
+                }
+            }
+            Ok(None) => {
+                info!(
+                    "focus_ticker_strip cache miss (key={}): no value present",
+                    cache_key
+                );
+            }
+            Err(err) => {
+                info!(
+                    "focus_ticker_strip cache GET error (key={}): {}",
+                    cache_key, err
+                );
+            }
+        }
+    } else {
+        error!("focus_ticker_strip: failed to get Redis connection from pool");
+    }
+
+    // 2) Fallback to DB
     let result = sqlx::query_as::<_, FocusTickerStripRow>(
         r#"
         WITH latest_focus AS (
@@ -643,7 +708,36 @@ async fn get_focus_ticker_strip(
     .await;
 
     match result {
-        Ok(rows) => (StatusCode::OK, Json(rows)),
+        Ok(rows) => {
+            // 3) Write-through to Redis (best-effort)
+            if let Ok(json_blob) = serde_json::to_string(&rows) {
+                if let Ok(mut conn) = state.redis_pool.get().await {
+                    match conn
+                        .set_ex::<_, _, ()>(&cache_key, json_blob, ttl_seconds)
+                        .await
+                    {
+                        Ok(()) => {
+                            info!(
+                                "focus_ticker_strip cache set (key={}, ttl={}s, rows={})",
+                                cache_key,
+                                ttl_seconds,
+                                rows.len()
+                            );
+                        }
+                        Err(err) => {
+                            error!(
+                                "focus_ticker_strip: failed to SETEX cache (key={}): {}",
+                                cache_key, err
+                            );
+                        }
+                    }
+                } else {
+                    error!("focus_ticker_strip: failed to get Redis connection for SETEX");
+                }
+            }
+
+            (StatusCode::OK, Json(rows))
+        }
         Err(err) => {
             error!("Failed to fetch focus ticker strip: {err}");
             (
