@@ -92,12 +92,15 @@ export default function FocusTickerStrip() {
     );
   }
 
-  const stripClassName = `f90-ticker-strip${
+    const stripClassName = `f90-ticker-strip${
     isHovered ? " f90-ticker-strip-paused" : ""
   }`;
 
   const rows = 6;
   const rowIndexes = Array.from({ length: rows }, (_, i) => i);
+
+  // How many distinct tickers to show per row before we repeat
+  const ITEMS_PER_ROW = Math.min(items.length, 16);
 
   return (
     <div
@@ -109,16 +112,26 @@ export default function FocusTickerStrip() {
         const directionClass =
           rowIndex % 2 === 0 ? "f90-ticker-row-left" : "f90-ticker-row-right";
 
+        // Offset the starting index for each row so they don't all share the same order
+        const offset =
+          (rowIndex * Math.ceil(items.length / rows)) % items.length;
+
+        const rowItems = Array.from({ length: ITEMS_PER_ROW }, (_, i) => {
+          const idx = (offset + i) % items.length;
+          return items[idx];
+        });
+
         return (
           <div
             key={rowIndex}
             className={`f90-ticker-row ${directionClass}`}
           >
+            {/* duplicate the row's sequence twice so it scrolls seamlessly */}
             {[0, 1].map((loop) => (
               <span key={loop}>
-                {items.map((item) => (
+                {rowItems.map((item, idx) => (
                   <button
-                    key={`${rowIndex}-${loop}-${item.instrument_id ?? item.ticker}`}
+                    key={`${rowIndex}-${loop}-${idx}-${item.instrument_id ?? item.ticker}`}
                     type="button"
                     className="f90-ticker-chip"
                     onClick={() =>
