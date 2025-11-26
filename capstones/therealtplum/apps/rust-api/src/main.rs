@@ -6,16 +6,17 @@ use axum::{
     Json, Router,
 };
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{FromRow, PgPool};
 use std::{env, net::SocketAddr, sync::Arc};
 use tokio::net::TcpListener;
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info};
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
-use rust_decimal::Decimal;
-use tower_http::cors::{Any, CorsLayer};
+mod system_health;
 
 /// Shared application state
 #[derive(Clone)]
@@ -177,7 +178,10 @@ impl ChatClient {
             name = instrument.name,
             ticker = instrument.ticker,
             asset_class = instrument.asset_class,
-            exchange = instrument.exchange.clone().unwrap_or_else(|| "UNKNOWN".to_string()),
+            exchange = instrument
+                .exchange
+                .clone()
+                .unwrap_or_else(|| "UNKNOWN".to_string()),
             region = instrument.region,
             country = instrument.country_code,
         );
@@ -244,7 +248,7 @@ async fn main() -> anyhow::Result<()> {
         info!("OPENAI_API_KEY not set; insight generation will fall back to cache-only.");
     }
 
-        let state = AppState {
+    let state = AppState {
         db_pool,
         chat_client,
     };
@@ -257,6 +261,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = Router::new()
         .route("/health", get(health_handler))
+        .route("/system/health", get(system_health::get_system_health))
         .route("/instruments", get(list_instruments_handler))
         .route("/instruments/{id}", get(get_instrument_handler))
         .route("/instruments/{id}/news", get(list_instrument_news_handler))
@@ -275,7 +280,10 @@ async fn main() -> anyhow::Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = TcpListener::bind(addr).await?;
-    info!("🚀 fmhub-api listening on http://{}", listener.local_addr()?);
+    info!(
+        "🚀 fmhub-api listening on http://{}",
+        listener.local_addr()?
+    );
 
     axum::serve(listener, app).await?;
 
@@ -377,10 +385,7 @@ async fn get_instrument_handler(
 
     match result {
         Ok(Some(instr)) => (StatusCode::OK, Json(json!(instr))),
-        Ok(None) => (
-            StatusCode::NOT_FOUND,
-            Json(json!({"error": "not_found"})),
-        ),
+        Ok(None) => (StatusCode::NOT_FOUND, Json(json!({"error": "not_found"}))),
         Err(err) => {
             error!("Failed to fetch instrument {id}: {err}");
             (
@@ -473,7 +478,9 @@ async fn get_instrument_insight_handler(
             )
         }
         Ok(None) => {
-            info!("No cached insight for instrument_id={id}, kind={kind}; attempting LLM generation.");
+            info!(
+                "No cached insight for instrument_id={id}, kind={kind}; attempting LLM generation."
+            );
         }
         Err(err) => {
             error!("Failed to query cached insight for {id}, kind={kind}: {err}");
@@ -520,10 +527,7 @@ async fn get_instrument_insight_handler(
     {
         Ok(Some(instr)) => instr,
         Ok(None) => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(json!({"error": "not_found"})),
-            );
+            return (StatusCode::NOT_FOUND, Json(json!({"error": "not_found"})));
         }
         Err(err) => {
             error!("Failed to fetch instrument for insight generation {id}: {err}");
@@ -542,10 +546,7 @@ async fn get_instrument_insight_handler(
         Ok(t) => t,
         Err(err) => {
             error!("LLM generation failed for instrument_id={id}, kind={kind}: {err}");
-            return (
-                StatusCode::BAD_GATEWAY,
-                Json(json!({"error": "llm_error"})),
-            );
+            return (StatusCode::BAD_GATEWAY, Json(json!({"error": "llm_error"})));
         }
     };
 
