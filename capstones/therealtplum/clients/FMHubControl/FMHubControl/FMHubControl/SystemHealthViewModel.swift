@@ -40,7 +40,7 @@ final class SystemHealthViewModel: ObservableObject {
     private func startAutoRefresh() {
         Task {
             while true {
-                try? await Task.sleep(nanoseconds: 10 * 1_000_000_000)
+                try? await Task.sleep(nanoseconds: 3 * 1_000_000_000)
                 guard autoRefresh else { continue }
                 await refresh()
             }

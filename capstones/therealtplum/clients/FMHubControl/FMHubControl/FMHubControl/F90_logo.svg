@@ -1,0 +1,26 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Background -->
+  <rect
+    x="0"
+    y="0"
+    width="1024"
+    height="1024"
+    rx="220"
+    fill="#050608"
+  />
+
+  <!-- F90 Wordmark (matching Foundry90 style) -->
+  <text
+    x="50%"
+    y="50%"
+    dominant-baseline="middle"
+    text-anchor="middle"
+    fill="#43FF8A"
+    font-size="380"
+    font-family="SF Mono, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace"
+    letter-spacing="14"
+  >
+    F90
+  </text>
+</svg>
