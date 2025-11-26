@@ -9,17 +9,38 @@ import {
 } from "@/lib/api";
 
 /**
- * Static fallback focus universe.
- * NOTE: last_close_price is a STRING here to match FocusTickerStripItem.
+ * Raw items can have either:
+ * - short_insight / recent_insight
+ * - or short / recent
+ * (we'll normalize both into short_insight / recent_insight)
  */
-const STATIC_TICKERS: FocusTickerStripItem[] =
-  sampleTickers as FocusTickerStripItem[];
+type RawTicker = FocusTickerStripItem & {
+  short?: string | null;
+  recent?: string | null;
+  short_insight?: string | null;
+  recent_insight?: string | null;
+};
 
-// Extend with optional insight fields (in case API/sample JSON omit them)
 type FocusTickerWithInsights = FocusTickerStripItem & {
   short_insight?: string | null;
   recent_insight?: string | null;
 };
+
+function normalizeTicker(raw: RawTicker): FocusTickerWithInsights {
+  return {
+    ...raw,
+    short_insight: raw.short_insight ?? raw.short ?? null,
+    recent_insight: raw.recent_insight ?? raw.recent ?? null,
+  };
+}
+
+/**
+ * Static fallback focus universe, normalized so insights always live on:
+ *   short_insight / recent_insight
+ */
+const STATIC_TICKERS: FocusTickerWithInsights[] = (sampleTickers as RawTicker[]).map(
+  normalizeTicker,
+);
 
 function formatPrice(value: string | number): string {
   const num =
@@ -29,9 +50,7 @@ function formatPrice(value: string | number): string {
 }
 
 export default function FocusTickerStrip() {
-  const [items, setItems] = useState<FocusTickerWithInsights[]>(
-    STATIC_TICKERS as FocusTickerWithInsights[],
-  );
+  const [items, setItems] = useState<FocusTickerWithInsights[]>(STATIC_TICKERS);
   const [isHovered, setIsHovered] = useState(false);
   const [selected, setSelected] = useState<FocusTickerWithInsights | null>(null);
   const [hasTriedApi, setHasTriedApi] = useState(false);
@@ -45,13 +64,14 @@ export default function FocusTickerStrip() {
         const data = await getFocusTickerStrip();
         setHasTriedApi(true);
         if (!cancelled && Array.isArray(data) && data.length > 0) {
-          setItems(data as FocusTickerWithInsights[]);
+          const normalized = (data as RawTicker[]).map(normalizeTicker);
+          setItems(normalized);
         }
       } catch (err) {
         console.error("Failed to load focus ticker strip:", err);
         setHasTriedApi(true);
         if (!cancelled) {
-          setItems(STATIC_TICKERS as FocusTickerWithInsights[]);
+          setItems(STATIC_TICKERS);
         }
       }
     }
@@ -94,7 +114,6 @@ export default function FocusTickerStrip() {
             key={rowIndex}
             className={`f90-ticker-row ${directionClass}`}
           >
-            {/* duplicate list twice for continuous scroll */}
             {[0, 1].map((loop) => (
               <span key={loop}>
                 {items.map((item) => (
@@ -123,7 +142,6 @@ export default function FocusTickerStrip() {
         );
       })}
 
-      {/* LLM insight pill in bottom-right */}
       {selected && (
         <div className="f90-ticker-insight">
           <div className="f90-ticker-insight-header">
