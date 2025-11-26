@@ -49,6 +49,32 @@ function formatPrice(value: string | number): string {
   return num.toFixed(2);
 }
 
+type ChangeDirection = "up" | "down" | "flat";
+
+function computeChange(
+  item: FocusTickerWithInsights,
+): { direction: ChangeDirection; pctStr: string } | null {
+  const last = item.last_close_price
+    ? parseFloat(String(item.last_close_price))
+    : NaN;
+  const prior = item.prior_day_last_close_price
+    ? parseFloat(String(item.prior_day_last_close_price))
+    : NaN;
+
+  if (!isFinite(last) || !isFinite(prior) || prior === 0) {
+    return null;
+  }
+
+  const delta = last - prior;
+  const pct = (delta / prior) * 100;
+  const direction: ChangeDirection =
+    pct > 0.0001 ? "up" : pct < -0.0001 ? "down" : "flat";
+
+  const pctStr = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+
+  return { direction, pctStr };
+}
+
 export default function FocusTickerStrip() {
   const [items, setItems] = useState<FocusTickerWithInsights[]>(STATIC_TICKERS);
   const [isHovered, setIsHovered] = useState(false);
@@ -96,32 +122,32 @@ export default function FocusTickerStrip() {
     isHovered ? " f90-ticker-strip-paused" : ""
   }`;
 
-  // Don’t create more rows than we have items
-  const MAX_ROWS = 8;
-  const MIN_ITEMS_PER_ROW = 14; // tune this
+  // Fixed “board” look: up to 6 rows, but never more than we have items
+  const MAX_ROWS = 6;
+  const rowCount = Math.min(MAX_ROWS, items.length);
 
-  const rowCount = Math.min(
-    MAX_ROWS,
-    Math.max(1, Math.floor(items.length / MIN_ITEMS_PER_ROW)),
+  // Round-robin partition: each ticker goes to exactly one row,
+  // rows stay roughly the same size.
+  const rowPartitions: FocusTickerWithInsights[][] = Array.from(
+    { length: rowCount },
+    () => [],
   );
-  // Partition items so each ticker belongs to exactly one row
-  const baseCount = Math.floor(items.length / rowCount);
-  const remainder = items.length % rowCount;
 
-  const rowPartitions: FocusTickerWithInsights[][] = [];
-  let cursor = 0;
+  items.forEach((item, idx) => {
+    const rowIndex = idx % rowCount;
+    rowPartitions[rowIndex].push(item);
+  });
 
-  for (let r = 0; r < rowCount; r++) {
-    const extra = r < remainder ? 1 : 0; // first few rows get one extra
-    const count = baseCount + extra;
-    if (count <= 0) {
-      rowPartitions.push([]);
-      continue;
-    }
-    const rowItems = items.slice(cursor, cursor + count);
-    cursor += count;
-    rowPartitions.push(rowItems);
-  }
+  const selectedChange = selected ? computeChange(selected) : null;
+  const pillClassName =
+    "f90-ticker-insight" +
+    (selectedChange
+      ? selectedChange.direction === "up"
+        ? " f90-ticker-insight-up"
+        : selectedChange.direction === "down"
+        ? " f90-ticker-insight-down"
+        : " f90-ticker-insight-flat"
+      : "");
 
   return (
     <>
@@ -144,7 +170,9 @@ export default function FocusTickerStrip() {
                 <span key={loop}>
                   {rowItems.map((item, idx) => (
                     <button
-                      key={`${rowIndex}-${loop}-${idx}-${item.instrument_id ?? item.ticker}`}
+                      key={`${rowIndex}-${loop}-${idx}-${
+                        item.instrument_id ?? item.ticker
+                      }`}
                       type="button"
                       className="f90-ticker-chip"
                       onClick={() =>
@@ -170,8 +198,24 @@ export default function FocusTickerStrip() {
       </div>
 
       {selected && (
-        <div className="f90-ticker-insight">
+        <div className={pillClassName}>
           <div className="f90-ticker-insight-header">
+            {selectedChange && (
+              <span
+                className={`f90-ticker-insight-change f90-ticker-insight-change-${selectedChange.direction}`}
+              >
+                <span className="f90-ticker-insight-change-arrow">
+                  {selectedChange.direction === "up"
+                    ? "▲"
+                    : selectedChange.direction === "down"
+                    ? "▼"
+                    : "●"}
+                </span>
+                <span className="f90-ticker-insight-change-pct">
+                  {selectedChange.pctStr}
+                </span>
+              </span>
+            )}
             <span className="f90-ticker-insight-symbol">{selected.ticker}</span>
             <span className="f90-ticker-insight-name">{selected.name}</span>
           </div>

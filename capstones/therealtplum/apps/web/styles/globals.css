@@ -249,6 +249,17 @@ body.f90-body {
   font-size: 14px;
 }
 
+.f90-footer-link {
+  color: var(--f90-text-soft);
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.f90-footer-link:hover {
+  color: var(--f90-accent);
+  opacity: 0.9;
+}
+
 /* Glow Helpers */
 
 .f90-glow-green {
@@ -269,17 +280,6 @@ body.f90-body {
   margin-bottom: 60px;
 }
 
-.f90-footer-link {
-  color: var(--f90-text-soft);
-  text-decoration: none;
-  transition: color 0.2s ease, opacity 0.2s ease;
-}
-
-.f90-footer-link:hover {
-  color: var(--f90-accent);
-  opacity: 0.9;
-}
-
 /* Typewriter effect */
 .f90-type {
   display: inline-block;
@@ -298,7 +298,7 @@ body.f90-body {
     width: 0;
   }
   to {
-    width: 13ch; /* Foundry90_ */
+    width: 13ch;
   }
 }
 
@@ -312,52 +312,9 @@ body.f90-body {
   }
 }
 
-/* Coming soon section */
-.f90-capstones-coming {
-  position: relative;
-  overflow: hidden;
-  min-height: 50vh;
-  background: radial-gradient(
-    circle at top left,
-    #0b2216 0,
-    #050608 55%,
-    #000000 100%
-  );
-  border-top: 1px solid rgba(67, 255, 138, 0.12);
-  border-bottom: 1px solid rgba(67, 255, 138, 0.12);
-}
-
-/* Overlay text */
-.f90-capstones-overlay {
-  position: relative;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 64px 16px;
-  text-align: center;
-}
-
-.f90-coming-soon-title {
-  font-size: clamp(40px, 6vw, 64px);
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: #43ff8a;
-  text-shadow: 0 0 14px rgba(67, 255, 138, 0.8);
-  margin-bottom: 12px;
-}
-
-.f90-coming-soon-subtitle {
-  font-size: 14px;
-  color: var(--f90-text-soft, #9ca3af);
-}
-
 /* ===================================================================== */
 /*  FULL-SCREEN FMHUB BOARD + NEON TICKER STRIP                          */
 /* ===================================================================== */
-
-/* Root wrappers for the capstones board page */
 
 .fmhub-board-root {
   min-height: 100vh;
@@ -388,10 +345,10 @@ body.f90-body {
   inset: 0;
   z-index: 0;
   opacity: 0.95;
-  pointer-events: auto; /* needed for hover pause */
+  pointer-events: auto;
 }
 
-/* Each row is absolutely positioned and scrolls horizontally */
+/* Rows */
 
 .f90-ticker-row {
   display: inline-flex;
@@ -403,8 +360,6 @@ body.f90-body {
   right: -50%;
 }
 
-/* Alternate directions + durations */
-
 .f90-ticker-row-left {
   animation: f90-scroll-left 28s linear infinite;
 }
@@ -413,7 +368,7 @@ body.f90-body {
   animation: f90-scroll-right 34s linear infinite;
 }
 
-/* Six rows, staggered vertically */
+/* Vertical stagger */
 
 .f90-ticker-row:nth-child(1) {
   top: 10%;
@@ -434,13 +389,13 @@ body.f90-body {
   top: 85%;
 }
 
-/* Pause all animations when hovered */
+/* Pause */
 
 .f90-ticker-strip-paused .f90-ticker-row {
   animation-play-state: paused;
 }
 
-/* Ticker chips */
+/* Chips */
 
 .f90-ticker-chip {
   border: 1px solid rgba(67, 255, 138, 0.45);
@@ -475,57 +430,14 @@ body.f90-body {
 
 .f90-ticker-symbol {
   font-weight: 700;
-  color: #43ff8a; /* neon */
+  color: #43ff8a;
 }
 
 .f90-ticker-price {
   opacity: 0.9;
 }
 
-/* Optional insight card (if you ever bring it back) */
-
-.f90-ticker-insight {
-  position: absolute;
-  right: 24px;
-  bottom: 24px;
-  max-width: min(420px, 80vw);
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: radial-gradient(circle at top left, #0b2216, #050608);
-  border: 1px solid rgba(67, 255, 138, 0.45);
-  box-shadow:
-    0 0 24px rgba(67, 255, 138, 0.4),
-    0 0 64px rgba(0, 0, 0, 0.85);
-  z-index: 15;
-}
-
-.f90-ticker-insight-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.f90-ticker-insight-symbol {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
-  font-weight: 700;
-  color: #43ff8a;
-}
-
-.f90-ticker-insight-name {
-  font-size: 12px;
-  color: var(--f90-text-soft, #9ca3af);
-}
-
-.f90-ticker-insight-body {
-  font-size: 12px;
-  line-height: 1.5;
-  color: #e5e7eb;
-}
-
-/* keyframes */
+/* Keyframes */
 
 @keyframes f90-scroll-left {
   0% {
@@ -545,7 +457,9 @@ body.f90-body {
   }
 }
 
-/* Insight pill overlay */
+/* ===================================================================== */
+/* Insight Pill — unified, deduped                                       */
+/* ===================================================================== */
 
 .f90-ticker-insight {
   position: fixed;
@@ -567,12 +481,69 @@ body.f90-body {
   color: var(--f90-text);
 }
 
+/* Direction variants */
+
+.f90-ticker-insight-up {
+  border-color: rgba(34, 197, 94, 0.9);
+  box-shadow:
+    0 22px 40px rgba(16, 185, 129, 0.3),
+    0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+
+.f90-ticker-insight-down {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    0 22px 40px rgba(239, 68, 68, 0.3),
+    0 0 0 1px rgba(239, 68, 68, 0.4);
+}
+
+.f90-ticker-insight-flat {
+  border-color: rgba(148, 163, 184, 0.7);
+  box-shadow:
+    0 22px 40px rgba(15, 23, 42, 0.7),
+    0 0 0 1px rgba(148, 163, 184, 0.4);
+}
+
 .f90-ticker-insight-header {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 10px;
   margin-bottom: 8px;
+}
+
+.f90-ticker-insight-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.f90-ticker-insight-change-up {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+.f90-ticker-insight-change-down {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fecaca;
+}
+
+.f90-ticker-insight-change-flat {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e5e7eb;
+}
+
+.f90-ticker-insight-change-arrow {
+  font-size: 11px;
+}
+
+.f90-ticker-insight-change-pct {
+  font-variant-numeric: tabular-nums;
 }
 
 .f90-ticker-insight-symbol {

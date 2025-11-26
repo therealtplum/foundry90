@@ -35,8 +35,9 @@ export interface FocusTickerStripItem {
   name: string;
   asset_class: string;
   last_close_price: string | null;
-  short_insight: string | null;
-  recent_insight: string | null;
+  prior_day_last_close_price?: string | null; // NEW
+  short_insight?: string | null;
+  recent_insight?: string | null;
 }
 
 function getBaseUrl() {
