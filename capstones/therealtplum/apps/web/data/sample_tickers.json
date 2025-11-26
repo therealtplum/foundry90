@@ -1,0 +1,228 @@
+[
+  {
+    "instrument_id": 32892,
+    "ticker": "NVDA",
+    "name": "Nvidia Corp",
+    "asset_class": "equity",
+    "last_close_price": "182.55",
+    "short_insight": "Nvidia designs GPUs and accelerated-computing hardware that power AI training, data centers, gaming, and autonomous systems. The company is central to the current AI-infrastructure cycle and often moves with sentiment around cloud spending and chip demand.",
+    "recent_insight": "Recent trading has been driven by ongoing AI-infrastructure buildouts, strong data-center demand, and continued momentum in enterprise GPU spending. Market attention remains focused on supply constraints, hyperscaler orders, and any updates on next-generation chip launches."
+  },
+  {
+    "instrument_id": 38771,
+    "ticker": "SPY",
+    "name": "SPDR S&P 500 ETF Trust",
+    "asset_class": "equity",
+    "last_close_price": "668.73",
+    "short_insight": "SPY tracks the S&P 500 and serves as a liquid benchmark for U.S. large-cap equities. It is widely used for hedging, tactical positioning, and capturing broad macro trends.",
+    "recent_insight": "Recent movement reflects shifting expectations around interest-rate policy, inflation prints, earnings breadth, and sector rotation. Event-driven traders are watching macro catalysts, including Fed communications and large-cap earnings cycles."
+  },
+  {
+    "instrument_id": 35489,
+    "ticker": "QQQ",
+    "name": "Invesco QQQ Trust, Series 1",
+    "asset_class": "equity",
+    "last_close_price": "605.16",
+    "short_insight": "QQQ tracks the Nasdaq-100, heavily weighted toward technology, communication services, and growth-oriented names. It is sensitive to interest-rate expectations and mega-cap tech performance.",
+    "recent_insight": "Recent performance has been shaped by big-tech earnings, AI-related momentum, and shifting views on rate cuts. Traders continue to monitor volatility in mega-cap tech and sentiment within growth-factor equities."
+  },
+  {
+    "instrument_id": 40741,
+    "ticker": "TSLA",
+    "name": "Tesla, Inc. Common Stock",
+    "asset_class": "equity",
+    "last_close_price": "417.78",
+    "short_insight": "Tesla is a leading EV manufacturer with exposure to energy storage, autonomous driving, and robotics. The stock often trades on delivery volumes, production updates, and technology announcements.",
+    "recent_insight": "Recent catalysts include delivery trends, pricing adjustments across major markets, and sentiment around margins. Traders are also watching updates on autonomy, energy deployments, and manufacturing expansion."
+  },
+  {
+    "instrument_id": 12309,
+    "ticker": "GOOGL",
+    "name": "Alphabet Inc. Class A",
+    "asset_class": "equity",
+    "last_close_price": "318.58",
+    "short_insight": "Alphabet operates Google Search, YouTube, cloud services, and various AI-driven products. The stock is tied to digital advertising health and cloud-infrastructure demand.",
+    "recent_insight": "Recent attention centers on ad-spend trends, cloud-segment growth, and progress in generative-AI initiatives. Market focus remains on competition in search and monetization efficiency."
+  },
+  {
+    "instrument_id": 12308,
+    "ticker": "GOOG",
+    "name": "Alphabet Inc. Class C",
+    "asset_class": "equity",
+    "last_close_price": "318.47",
+    "short_insight": "Alphabet Class C shares track the same business fundamentals as GOOGL but carry no voting rights. They trade largely in line with overall Alphabet corporate performance.",
+    "recent_insight": "Recent trading reflects sentiment around the digital-ads cycle, cloud growth, and AI-platform announcements. Investor focus mirrors that of GOOGL, with similar catalysts and risk sensitivities."
+  },
+  {
+    "instrument_id": 30416,
+    "ticker": "META",
+    "name": "Meta Platforms, Inc. Class A",
+    "asset_class": "equity",
+    "last_close_price": "613.05",
+    "short_insight": "Meta operates Facebook, Instagram, WhatsApp, and a growing AI and VR/AR ecosystem. The business is highly leveraged to advertising demand and engagement trends.",
+    "recent_insight": "Recent drivers include ad-revenue momentum, efficiency improvements, and AI-tool rollouts that enhance advertiser performance. Event-driven traders watch user-engagement metrics and spending on Reality Labs."
+  },
+  {
+    "instrument_id": 1334,
+    "ticker": "AMD",
+    "name": "Advanced Micro Devices",
+    "asset_class": "equity",
+    "last_close_price": "215.05",
+    "short_insight": "AMD produces CPUs, GPUs, and data-center accelerators that compete with Nvidia and Intel across multiple compute markets. The company is leveraged to server demand and AI-chip adoption.",
+    "recent_insight": "Recent catalysts include updates on data-center GPU roadmaps, PC-market recovery signals, and partnerships in AI training and inference. Traders monitor competitive positioning against Nvidia."
+  },
+  {
+    "instrument_id": 2430,
+    "ticker": "AVGO",
+    "name": "Broadcom Inc.",
+    "asset_class": "equity",
+    "last_close_price": "377.96",
+    "short_insight": "Broadcom supplies semiconductors and infrastructure software, with strong exposure to networking, wireless, and enterprise systems. It has become a major AI-infrastructure beneficiary.",
+    "recent_insight": "Recent moves reflect AI-networking demand, hyperscaler spending, and integration of its software acquisitions. Markets are focused on margin durability and infrastructure-capex trends."
+  },
+  {
+    "instrument_id": 56,
+    "ticker": "AAPL",
+    "name": "Apple Inc.",
+    "asset_class": "equity",
+    "last_close_price": "275.92",
+    "short_insight": "Apple develops consumer hardware, software, and services centered around its device ecosystem. The stock trades on hardware-cycle strength and service-revenue expansion.",
+    "recent_insight": "Recent activity has been driven by product-cycle expectations, services-segment performance, and sentiment around global device demand. Markets are watching updates on AI integration across the ecosystem."
+  },
+
+  {
+    "instrument_id": 50111,
+    "ticker": "MSFT",
+    "name": "Microsoft Corp",
+    "asset_class": "equity",
+    "last_close_price": "442.22",
+    "short_insight": "Microsoft operates cloud services, enterprise software, AI platforms, and consumer computing. Its Azure business is a major driver of corporate performance.",
+    "recent_insight": "Recent catalysts include cloud-growth momentum, AI-product rollouts, and enterprise IT-spend trends. Traders watch guidance from Azure and updates across the AI-inference stack."
+  },
+  {
+    "instrument_id": 40122,
+    "ticker": "AMZN",
+    "name": "Amazon.com Inc.",
+    "asset_class": "equity",
+    "last_close_price": "187.39",
+    "short_insight": "Amazon operates global e-commerce, logistics infrastructure, and AWS cloud computing. The company is sensitive to consumer demand and enterprise cloud adoption.",
+    "recent_insight": "Recent drivers include AWS growth stabilization, efficiency improvements in retail operations, and ongoing AI-service rollouts. Macro consumer-spending signals remain important."
+  },
+  {
+    "instrument_id": 90012,
+    "ticker": "NFLX",
+    "name": "Netflix Inc.",
+    "asset_class": "equity",
+    "last_close_price": "675.14",
+    "short_insight": "Netflix is a global streaming platform with a growing advertising tier and international content strategy. Subscriber growth and engagement trends drive the stock.",
+    "recent_insight": "Recent activity reflects content-release cycles, ad-tier adoption, and global subscriber trends. Markets are focused on margins and competitive dynamics in streaming."
+  },
+  {
+    "instrument_id": 88223,
+    "ticker": "JPM",
+    "name": "JPMorgan Chase & Co.",
+    "asset_class": "equity",
+    "last_close_price": "205.40",
+    "short_insight": "JPMorgan is the largest U.S. bank, spanning consumer banking, capital markets, and asset management. It trades on credit conditions, interest-rate policy, and financial-sector sentiment.",
+    "recent_insight": "Recent movements have been tied to rate expectations, loan-growth trends, and credit-quality updates. Event-driven focus includes regulatory developments and bank-earnings cycles."
+  },
+  {
+    "instrument_id": 77312,
+    "ticker": "XOM",
+    "name": "Exxon Mobil Corp.",
+    "asset_class": "equity",
+    "last_close_price": "124.19",
+    "short_insight": "Exxon is an integrated energy company with exposure to upstream, downstream, and petrochemicals. It trades closely with crude-oil supply/demand dynamics.",
+    "recent_insight": "Recent drivers include crude-price shifts, refining margins, and capital-allocation updates. Markets are watching geopolitical risks and production-outlook commentary."
+  },
+  {
+    "instrument_id": 55129,
+    "ticker": "CVX",
+    "name": "Chevron Corp.",
+    "asset_class": "equity",
+    "last_close_price": "161.44",
+    "short_insight": "Chevron is a major energy producer with global upstream assets and refining operations. The stock follows energy-price trends and capital-return decisions.",
+    "recent_insight": "Recent catalysts include oil-price volatility, upstream-production updates, and developments in energy-sector M&A. Traders monitor dividend and buyback policy."
+  },
+  {
+    "instrument_id": 66544,
+    "ticker": "BRK.B",
+    "name": "Berkshire Hathaway Class B",
+    "asset_class": "equity",
+    "last_close_price": "414.66",
+    "short_insight": "Berkshire is a diversified holding company spanning insurance, energy, consumer goods, and public equity investments. It often reflects broad economic conditions.",
+    "recent_insight": "Recent trading has been influenced by insurance-segment profitability, performance of key equity holdings, and macroeconomic signals. Markets monitor capital-allocation decisions."
+  },
+  {
+    "instrument_id": 22119,
+    "ticker": "UNH",
+    "name": "UnitedHealth Group",
+    "asset_class": "equity",
+    "last_close_price": "519.45",
+    "short_insight": "UNH is a major health-insurance and healthcare-services provider. It trades on policy developments, medical-cost trends, and enrollment metrics.",
+    "recent_insight": "Recent movement reflects policy discussions, cost-trend commentary, and sentiment in the managed-care sector. Traders watch reimbursement updates and regulatory headlines."
+  },
+  {
+    "instrument_id": 71014,
+    "ticker": "V",
+    "name": "Visa Inc.",
+    "asset_class": "equity",
+    "last_close_price": "297.80",
+    "short_insight": "Visa is a global payments network benefiting from consumer spending and transaction-volume growth. It is tied to macro consumer and travel trends.",
+    "recent_insight": "Recent catalysts include cross-border volume strength, consumer-spending signals, and payments-innovation commentary. Markets are watching macro demand and fintech competition."
+  },
+  {
+    "instrument_id": 71015,
+    "ticker": "MA",
+    "name": "Mastercard Inc.",
+    "asset_class": "equity",
+    "last_close_price": "429.55",
+    "short_insight": "Mastercard operates a global payment-processing network and benefits from secular growth in electronic payments. It trades on spending trends and international activity.",
+    "recent_insight": "Recent performance has been shaped by cross-border travel recovery, consumer-spending data, and network-volume updates. Traders watch competitive dynamics and global growth indicators."
+  },
+  {
+    "instrument_id": 81155,
+    "ticker": "KO",
+    "name": "Coca-Cola Co.",
+    "asset_class": "equity",
+    "last_close_price": "62.45",
+    "short_insight": "Coca-Cola is a global beverage company with strong brand distribution and defensive cash-flow characteristics. It trades as a stable, consumer-staples name.",
+    "recent_insight": "Recent drivers include pricing actions, input-cost trends, and international-volume data. Markets are focused on margin stability and consumer-staples demand."
+  },
+  {
+    "instrument_id": 81156,
+    "ticker": "PEP",
+    "name": "PepsiCo Inc.",
+    "asset_class": "equity",
+    "last_close_price": "173.88",
+    "short_insight": "PepsiCo sells beverages and snack foods globally, offering a blend of defensive and growth exposure. It is sensitive to pricing power and supply-chain conditions.",
+    "recent_insight": "Recent movement reflects pricing strength, commodity-cost pressures, and performance across its snack segment. Traders monitor volume trends and guidance updates."
+  },
+  {
+    "instrument_id": 94442,
+    "ticker": "WMT",
+    "name": "Walmart Inc.",
+    "asset_class": "equity",
+    "last_close_price": "76.31",
+    "short_insight": "Walmart is the largest U.S. retailer, benefiting from scale, grocery demand, and omnichannel investment. It trades as a bellwether for consumer behavior.",
+    "recent_insight": "Recent catalysts include consumer-spending trends, mix shifts toward staples, and e-commerce growth. Markets watch guidance and foot-traffic data."
+  },
+  {
+    "instrument_id": 95511,
+    "ticker": "HD",
+    "name": "Home Depot Inc.",
+    "asset_class": "equity",
+    "last_close_price": "345.26",
+    "short_insight": "Home Depot is the leading home-improvement retailer in the U.S. It trades on housing-market activity, DIY demand, and contractor spending.",
+    "recent_insight": "Recent movements reflect housing-turnover trends, big-ticket spending patterns, and sentiment around home-improvement demand. Traders watch mortgage-rate news and consumer trends."
+  },
+  {
+    "instrument_id": 98812,
+    "ticker": "BAC",
+    "name": "Bank of America Corp.",
+    "asset_class": "equity",
+    "last_close_price": "38.70",
+    "short_insight": "Bank of America is a major U.S. bank with exposure to consumer lending, wealth management, and capital markets. It moves with rate expectations and credit conditions.",
+    "recent_insight": "Recent catalysts include shifts in net-interest-income outlook, loan-growth commentary, and sector-wide credit-quality metrics. Markets also watch regulatory discussions."
+  }
+]

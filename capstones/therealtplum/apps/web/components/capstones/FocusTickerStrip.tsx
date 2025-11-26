@@ -1,6 +1,7 @@
 // apps/web/components/capstones/FocusTickerStrip.tsx
 "use client";
 
+import sampleTickers from "@/data/sample_tickers.json";
 import { useEffect, useState } from "react";
 import {
   getFocusTickerStrip,
@@ -11,98 +12,7 @@ import {
  * Static fallback focus universe.
  * NOTE: last_close_price is a STRING here to match FocusTickerStripItem.
  */
-const STATIC_TICKERS: FocusTickerStripItem[] = [
-  {
-    instrument_id: 32892,
-    ticker: "NVDA",
-    name: "Nvidia Corp",
-    asset_class: "equity",
-    last_close_price: "182.55",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 38771,
-    ticker: "SPY",
-    name: "SPDR S&P 500 ETF Trust",
-    asset_class: "equity",
-    last_close_price: "668.73",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 35489,
-    ticker: "QQQ",
-    name: "Invesco QQQ Trust, Series 1",
-    asset_class: "equity",
-    last_close_price: "605.16",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 40741,
-    ticker: "TSLA",
-    name: "Tesla, Inc. Common Stock",
-    asset_class: "equity",
-    last_close_price: "417.78",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 12309,
-    ticker: "GOOGL",
-    name: "Alphabet Inc. Class A",
-    asset_class: "equity",
-    last_close_price: "318.58",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 12308,
-    ticker: "GOOG",
-    name: "Alphabet Inc. Class C",
-    asset_class: "equity",
-    last_close_price: "318.47",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 30416,
-    ticker: "META",
-    name: "Meta Platforms, Inc. Class A",
-    asset_class: "equity",
-    last_close_price: "613.05",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 1334,
-    ticker: "AMD",
-    name: "Advanced Micro Devices",
-    asset_class: "equity",
-    last_close_price: "215.05",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 2430,
-    ticker: "AVGO",
-    name: "Broadcom Inc.",
-    asset_class: "equity",
-    last_close_price: "377.96",
-    short_insight: null,
-    recent_insight: null,
-  },
-  {
-    instrument_id: 56,
-    ticker: "AAPL",
-    name: "Apple Inc.",
-    asset_class: "equity",
-    last_close_price: "275.92",
-    short_insight: null,
-    recent_insight: null,
-  },
-];
+const STATIC_TICKERS: FocusTickerStripItem[] = sampleTickers;
 
 /** Try live focus universe; fall back to null on any error. */
 async function loadLive(limit = 96): Promise<FocusTickerStripItem[] | null> {
