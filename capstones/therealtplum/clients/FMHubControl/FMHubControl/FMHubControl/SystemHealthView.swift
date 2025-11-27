@@ -55,12 +55,14 @@ struct SystemHealthView: View {
     // MARK: - Status row
 
     private var statusRow: some View {
-        HStack(spacing: 16) {
-            statusTile(title: "API", status: viewModel.health?.api ?? "unknown")
-            statusTile(title: "Database", status: viewModel.health?.db ?? "unknown")
-            statusTile(title: "Redis", status: viewModel.health?.redis ?? "unknown")
-            statusTile(title: "Web (local)", status: viewModel.health?.webLocal?.status ?? "unknown")
-            statusTile(title: "Web (prod)", status: viewModel.health?.webProd?.status ?? "unknown")
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 16) {
+                statusTile(title: "API", status: viewModel.health?.api ?? "unknown")
+                statusTile(title: "Database", status: viewModel.health?.db ?? "unknown")
+                statusTile(title: "Redis", status: viewModel.health?.redis ?? "unknown")
+                statusTile(title: "Web (local)", status: viewModel.health?.webLocal?.status ?? "unknown")
+                statusTile(title: "Web (prod)", status: viewModel.health?.webProd?.status ?? "unknown")
+            }
         }
     }
 
@@ -101,7 +103,8 @@ struct SystemHealthView: View {
 
             webSection(
                 title: "Local (Docker)",
-                web: viewModel.health?.webLocal
+                web: viewModel.health?.webLocal,
+                isProdSection: false
             )
 
             Divider()
@@ -109,7 +112,8 @@ struct SystemHealthView: View {
 
             webSection(
                 title: "Production (Vercel)",
-                web: viewModel.health?.webProd
+                web: viewModel.health?.webProd,
+                isProdSection: true
             )
         }
         .padding(16)
@@ -122,7 +126,11 @@ struct SystemHealthView: View {
         .cornerRadius(16)
     }
 
-    private func webSection(title: String, web: WebHealth?) -> some View {
+    private func webSection(
+        title: String,
+        web: WebHealth?,
+        isProdSection: Bool
+    ) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text(title)
@@ -154,15 +162,23 @@ struct SystemHealthView: View {
             }
 
             if let web = web {
+                // URL (clickable)
                 HStack(alignment: .top, spacing: 8) {
                     Text("URL:")
                         .foregroundColor(.white.opacity(0.6))
-                    Text(web.url)
-                        .font(.system(size: 12, weight: .regular, design: .monospaced))
-                        .textSelection(.enabled)
+
+                    if let url = URL(string: web.url) {
+                        Link(web.url, destination: url)
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    } else {
+                        Text(web.url)
+                            .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    }
+
                     Spacer()
                 }
 
+                // Build
                 if let commit = web.buildCommit {
                     HStack(spacing: 8) {
                         Text("Build:")
@@ -173,6 +189,7 @@ struct SystemHealthView: View {
                     }
                 }
 
+                // Branch
                 if let branch = web.buildBranch {
                     HStack(spacing: 8) {
                         Text("Branch:")
@@ -183,6 +200,7 @@ struct SystemHealthView: View {
                     }
                 }
 
+                // Deployed at
                 if let deployedAt = web.deployedAtUtc {
                     HStack(spacing: 8) {
                         Text("Deployed at (UTC):")
@@ -193,13 +211,14 @@ struct SystemHealthView: View {
                     }
                 }
 
-                if let isLatest = web.isLatest {
+                // Version status badge (Latest / Out of date)
+                if let (label, color) = versionStatus(for: web, isProdSection: isProdSection) {
                     HStack(spacing: 8) {
                         Text("Version status:")
                             .foregroundColor(.white.opacity(0.6))
-                        Text(isLatest ? "Latest" : "Out of date")
+                        Text(label)
                             .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(isLatest ? .green : .orange)
+                            .foregroundColor(color)
                         Spacer()
                     }
                 }
@@ -209,6 +228,37 @@ struct SystemHealthView: View {
                     .foregroundColor(.white.opacity(0.6))
             }
         }
+    }
+
+    /// Decide what to show in the "Version status" badge.
+    ///
+    /// Priority:
+    /// 1. If backend gave us `is_latest`, use that (Vercel comparison).
+    /// 2. For the Production section, if we have both prod + local commits, compare them:
+    ///    - same  → "Latest (matches local)"
+    ///    - diff  → "Out of date vs local"
+    private func versionStatus(for web: WebHealth, isProdSection: Bool) -> (String, Color)? {
+        // 1) Trust backend if it gave us `is_latest`
+        if let isLatest = web.isLatest {
+            return isLatest
+                ? ("Latest", .green)
+                : ("Out of date", .orange)
+        }
+
+        // 2) Otherwise, for prod, compare commit to local's commit if we have both
+        if isProdSection,
+           let prodCommit = web.buildCommit,
+           let localCommit = viewModel.health?.webLocal?.buildCommit
+        {
+            if prodCommit == localCommit {
+                return ("Latest (matches local)", .green)
+            } else {
+                return ("Out of date vs local", .orange)
+            }
+        }
+
+        // Nothing meaningful to show
+        return nil
     }
 
     // MARK: - DB table list
