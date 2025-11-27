@@ -4,9 +4,12 @@ Build and persist the daily FMHub instrument focus universe.
 
 Strategy (per as_of_date):
   1. Pull Polygon snapshots for US stocks and global crypto.
-  2. Compute simple activity metrics (dollar_volume, volume, asset_class).
-  3. Map Polygon tickers to fmhub.instruments (status = 'active').
-  4. Rank globally and by asset_class.
+  2. Compute simple activity metrics (dollar_volume, volume, asset_class),
+     using either today's session or the previous trading day if today is
+     a holiday/weekend.
+  3. Map Polygon tickers to fmhub.instruments (status = 'active'),
+     filtering out OTC/grey/unsupported asset classes.
+  4. Apply simple liquidity filters and rank globally and by asset_class.
   5. Select a focus universe:
        - top N globally
        - plus a minimum per asset_class (equity/etf/crypto).
@@ -42,6 +45,14 @@ STOCK_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/us/markets/stock
 CRYPTO_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/global/markets/crypto/tickers"
 PREV_CLOSE_URL_TEMPLATE = "https://api.polygon.io/v2/aggs/ticker/{ticker}/prev"
 
+# -------------------------------------------------------------------
+# Liquidity / selection defaults
+# -------------------------------------------------------------------
+
+# These are intentionally modest so we don't end up with an empty universe,
+# but they still knock out truly dead/ghost tickers.
+MIN_DOLLAR_VOLUME_USD = float(os.getenv("FOCUS_MIN_DOLLAR_VOLUME_USD", "0"))
+MIN_VOLUME_SHARES = float(os.getenv("FOCUS_MIN_VOLUME_SHARES", "0"))
 
 # -------------------------------------------------------------------
 # DB helpers
@@ -62,15 +73,26 @@ def fetch_polygon_snapshot(url: str) -> List[Dict[str, Any]]:
     """
     Fetch a snapshot from Polygon (stocks or crypto).
 
-    Returns a list of ticker payloads (or empty list on 403).
+    Returns a list of ticker payloads (or empty list on 403/timeout).
     """
     params = {"apiKey": POLYGON_API_KEY}
     log.info(f"Fetching snapshot: {url}")
-    resp = requests.get(url, params=params, timeout=30)
+    try:
+        resp = requests.get(url, params=params, timeout=30)
+    except requests.exceptions.RequestException as e:
+        log.warning(f"Error fetching snapshot from {url}: {e} – returning empty list.")
+        return []
+
     if resp.status_code == 403:
         log.warning(f"403 Forbidden from Polygon for {url} – skipping this snapshot.")
         return []
-    resp.raise_for_status()
+
+    try:
+        resp.raise_for_status()
+    except Exception as e:
+        log.warning(f"Non-200 from Polygon for {url}: {e} – returning empty list.")
+        return []
+
     data = resp.json()
     return data.get("tickers", []) or []
 
@@ -78,14 +100,35 @@ def fetch_polygon_snapshot(url: str) -> List[Dict[str, Any]]:
 def compute_activity_for_ticker(t: Dict[str, Any], asset_class: str) -> Dict[str, Any]:
     """
     Given a Polygon snapshot ticker payload, compute simple activity metrics.
-    We keep it deliberately simple: dollar_volume = close * volume.
+
+    On normal trading days:
+        - Use today's session (day.c, day.v).
+
+    On holidays/weekends / zero-activity days:
+        - Fall back to prevDay.c, prevDay.v so we still get real liquidity.
+
+    As a last resort:
+        - Use lastTrade.p / lastTrade.s if present.
     """
     last_trade = t.get("lastTrade") or {}
     day = t.get("day") or {}
+    prev_day = t.get("prevDay") or {}
 
-    # Prefer "c" (close) from day; fallback to last trade price.
-    close = day.get("c") or last_trade.get("p")
-    volume = day.get("v") or last_trade.get("s")
+    # Start with today's session
+    close = day.get("c")
+    volume = day.get("v")
+
+    # If today is "dead" (holiday/weekend / no trading),
+    # fall back to previous trading day.
+    if (close is None or close == 0) and (volume is None or volume == 0):
+        close = prev_day.get("c", close)
+        volume = prev_day.get("v", volume)
+
+    # Final fallback: last trade snapshot
+    if close is None or close == 0:
+        close = last_trade.get("p", close)
+    if volume is None or volume == 0:
+        volume = last_trade.get("s", volume)
 
     try:
         close = float(close) if close is not None else None
@@ -158,7 +201,7 @@ def fetch_prev_close_price(ticker: str) -> Optional[float]:
             log.warning(f"403 Forbidden for prev close {ticker} – skipping price.")
             return None
         if resp.status_code == 429:
-            # crude backoff
+            # crude backoff once
             log.warning(f"429 Too Many Requests for {ticker}, sleeping 1s…")
             time.sleep(1)
             resp = requests.get(url, params=params, timeout=10)
@@ -198,10 +241,12 @@ def build_focus_universe(
 
     Strategy:
       1. Build Polygon activity metrics (dollar_volume, volume, asset_class).
-      2. Map tickers to fmhub instruments.
-      3. Compute global + per-asset-class ranks.
-      4. Select global_top_n overall, and ensure at least min_by_asset per class.
-      5. For those focus instruments, fetch prev close price from Polygon
+      2. Map tickers to fmhub instruments, filtering out OTC/grey and
+         unsupported asset classes.
+      3. Apply simple liquidity filters.
+      4. Compute global + per-asset-class ranks.
+      5. Select global_top_n overall, and ensure at least min_by_asset per class.
+      6. For those focus instruments, fetch prev close price from Polygon
          and upsert into instrument_focus_universe with last_close_price.
     """
     if as_of is None:
@@ -217,7 +262,7 @@ def build_focus_universe(
     log.info(f"Building activity metrics from Polygon snapshots for as_of={as_of}…")
     activity = build_activity_from_snapshots()
 
-    # 2. Map tickers to instruments in DB
+    # 2. Map tickers to instruments in DB, with coarse filters
     ticker_list = list(activity.keys())
     if not ticker_list:
         log.warning("No activity metrics to process. Exiting.")
@@ -226,10 +271,17 @@ def build_focus_universe(
     with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         cur.execute(
             """
-            SELECT id, ticker, asset_class::text AS asset_class
+            SELECT
+                id,
+                ticker,
+                asset_class::text AS asset_class,
+                exchange
             FROM instruments
             WHERE ticker = ANY(%s)
               AND status = 'active'
+              AND asset_class IN ('equity', 'etf', 'crypto')
+              AND (exchange IS NULL OR exchange NOT ILIKE 'OTC%%')
+              AND (exchange IS NULL OR exchange NOT ILIKE 'GREY%%')
             """,
             (ticker_list,),
         )
@@ -240,9 +292,10 @@ def build_focus_universe(
         by_ticker[row["ticker"]] = {
             "instrument_id": row["id"],
             "asset_class": row["asset_class"],
+            "exchange": row["exchange"],
         }
 
-    log.info(f"Matched {len(by_ticker)} instruments from DB")
+    log.info(f"Matched {len(by_ticker)} instruments from DB after filters")
 
     # 3. Build list of candidates with activity + instrument mapping
     candidates: List[Dict[str, Any]] = []
@@ -255,6 +308,12 @@ def build_focus_universe(
         dollar_volume = metrics["dollar_volume"]
         volume = metrics["volume"]
 
+        # Simple liquidity filter: skip zero or negative
+        if dollar_volume is None or dollar_volume <= MIN_DOLLAR_VOLUME_USD:
+            continue
+        if volume is None or volume <= MIN_VOLUME_SHARES:
+            continue
+
         candidates.append(
             {
                 "ticker": ticker,
@@ -266,7 +325,7 @@ def build_focus_universe(
         )
 
     if not candidates:
-        log.warning("No candidates after mapping activity to instruments.")
+        log.warning("No candidates after mapping activity to instruments and liquidity filters.")
         return
 
     # 4. Global ranking by dollar_volume desc
@@ -287,7 +346,7 @@ def build_focus_universe(
     # 6. Select focus universe: global top + min per asset class
     focus: Dict[int, Dict[str, Any]] = {}
 
-    # global top
+    # global top N
     for c in candidates[:global_top_n]:
         focus[c["instrument_id"]] = c
 
@@ -297,10 +356,88 @@ def build_focus_universe(
         for c in items[:min_n]:
             focus[c["instrument_id"]] = c
 
-    focus_list = list(focus.values())
+        focus_list = list(focus.values())
     log.info(
         f"Focus universe for {as_of}: {len(focus_list)} instruments "
         f"(global top {global_top_n} + per-asset mins {min_by_asset})"
+    )
+
+    if not focus_list:
+        log.warning(f"No focus instruments computed for {as_of}; skipping upsert.")
+        return
+
+    # 7. Upsert into instrument_focus_universe with last_close_price
+    success_prices = 0
+    total = len(focus_list)
+
+    with conn.cursor() as cur:
+        # Ensure this run is authoritative for this as_of_date.
+        # We want the table for a given date to reflect exactly this focus universe,
+        # not a union of older runs + new logic.
+        cur.execute(
+            """
+            DELETE FROM instrument_focus_universe
+            WHERE as_of_date = %s
+            """,
+            (as_of,),
+        )
+        log.info(
+            f"Cleared existing focus snapshot for {as_of} "
+            f"before inserting {total} instruments."
+        )
+
+        for idx, c in enumerate(focus_list, start=1):
+            ticker = c["ticker"]
+            instrument_id = c["instrument_id"]
+            asset_class = c["asset_class"]
+            dollar_volume = c["dollar_volume"]
+            volume = c["volume"]
+            rank_global = c["rank_global"]
+            rank_asset = c["rank_asset_class"]
+
+            last_close_price = fetch_prev_close_price(ticker)
+            if last_close_price is not None:
+                success_prices += 1
+
+            if idx <= 10:
+                # Only spam log for first few
+                log.info(
+                    f"[{idx}/{total}] {ticker} "
+                    f"id={instrument_id} dv={dollar_volume:.0f} "
+                    f"vol={volume:.0f} last_close={last_close_price}"
+                )
+
+            cur.execute(
+                """
+                INSERT INTO instrument_focus_universe (
+                    as_of_date,
+                    instrument_id,
+                    asset_class,
+                    dollar_volume,
+                    volume,
+                    activity_rank_global,
+                    activity_rank_asset_class,
+                    last_close_price
+                )
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                """,
+                (
+                    as_of,
+                    instrument_id,
+                    asset_class,
+                    dollar_volume,
+                    volume,
+                    rank_global,
+                    rank_asset,
+                    last_close_price,
+                ),
+            )
+
+        conn.commit()
+
+    log.info(
+        f"Finished upserting focus universe for {as_of}: "
+        f"{total} rows, {success_prices} with last_close_price populated."
     )
 
     # 7. Upsert into instrument_focus_universe with last_close_price
@@ -326,7 +463,7 @@ def build_focus_universe(
                 log.info(
                     f"[{idx}/{total}] {ticker} "
                     f"id={instrument_id} dv={dollar_volume:.0f} "
-                    f"last_close={last_close_price}"
+                    f"vol={volume:.0f} last_close={last_close_price}"
                 )
 
             cur.execute(
