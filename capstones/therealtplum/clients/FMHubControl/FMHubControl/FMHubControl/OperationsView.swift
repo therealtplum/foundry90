@@ -45,6 +45,8 @@ struct OperationsView: View {
                 Divider().background(Color.white.opacity(0.1))
 
                 opButton(.runFullEtl, systemImage: "bolt.fill")
+
+                opButton(.rebuildWebWithGit, systemImage: "arrow.triangle.2.circlepath")
             }
 
             Divider().background(Color.white.opacity(0.1))

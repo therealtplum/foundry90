@@ -5,6 +5,7 @@ enum OperationType: String {
     case startStack = "Start Stack"
     case stopStack = "Stop Stack"
     case runFullEtl = "Run Full ETL"
+    case rebuildWebWithGit = "Rebuild Web (Current Commit)"
     case panic = "PANIC"
 }
 
@@ -38,6 +39,8 @@ final class OperationsViewModel: ObservableObject {
             scriptName = "stop_stack.sh"
         case .runFullEtl:
             scriptName = "run_full_etl.sh"
+        case .rebuildWebWithGit:
+            scriptName = "rebuild_web_with_git.sh"
         case .panic:
             scriptName = "panic.sh"
         }
