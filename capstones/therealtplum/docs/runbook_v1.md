@@ -2,7 +2,8 @@
 
 ## 0. Navigate to Repo Root
 ```
-cd ~/Documents/python/projects/foundry90/capstones/therealtplum
+cd /path/to/your/foundry90/clone
+cd capstones/therealtplum
 ```
 
 ---
@@ -93,7 +94,8 @@ docker compose down -v
 # 🏷️ Correct Alias Block (Place in ~/.zshrc)
 
 ```
-export foundry90_root="$HOME/Documents/python/projects/foundry90/capstones/therealtplum"
+# From the capstone root (capstones/therealtplum)
+export FOUNDRY90_ROOT="$(pwd)"
 
 alias foundry90_start='cd "$foundry90_root" && docker compose up -d'
 alias foundry90_build='cd "$foundry90_root" && docker compose build --no-cache'

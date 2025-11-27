@@ -7,8 +7,11 @@ export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PAT
 TS() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 # Root of the therealtplum capstone.
-# You can also override this via FOUNDRY90_ROOT if you want.
-PROJECT_ROOT="${FOUNDRY90_ROOT:-$HOME/Documents/python/projects/foundry90/capstones/therealtplum}"
+# Resolution order:
+# 1. If FOUNDRY90_ROOT is set, use that.
+# 2. Otherwise, assume this script lives in capstones/therealtplum/ops and go one level up.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${FOUNDRY90_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[FMHub] $(TS) ERROR: docker command not found on PATH."

@@ -4,7 +4,14 @@ set -euo pipefail
 # Match the other ops scripts exactly
 export PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-cd /Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum
+# Resolve project root:
+# - If FOUNDRY90_ROOT is set, use that.
+# - Otherwise, assume this script lives in capstones/therealtplum/ops
+#   and go one level up.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="${FOUNDRY90_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+cd "$PROJECT_ROOT"
 
 echo "[rebuild_web_with_git] Detecting current git HEAD..."
 export GIT_COMMIT="$(git rev-parse HEAD)"

@@ -14,10 +14,27 @@ final class OperationsViewModel: ObservableObject {
     @Published var currentOperation: OperationType?
     @Published var logText: String = ""
 
-    // TODO: Make this configurable (settings) instead of hard-coded
-    private let repoRoot = URL(
-        fileURLWithPath: "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum"
-    )
+    /// Root of the capstone repo. Resolved once at init.
+    private let repoRoot: URL
+
+    init() {
+        self.repoRoot = OperationsViewModel.resolveRepoRoot()
+    }
+
+    /// Resolve the repo root in a portable way:
+    /// 1. If FOUNDRY90_ROOT is set, use that.
+    /// 2. Otherwise, fall back to the current working directory.
+    private static func resolveRepoRoot() -> URL {
+        let env = ProcessInfo.processInfo.environment
+
+        if let envPath = env["FOUNDRY90_ROOT"],
+           !envPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return URL(fileURLWithPath: envPath, isDirectory: true)
+        }
+
+        let cwd = FileManager.default.currentDirectoryPath
+        return URL(fileURLWithPath: cwd, isDirectory: true)
+    }
 
     func run(_ op: OperationType) {
         // Called from main thread via SwiftUI button
