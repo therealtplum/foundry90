@@ -603,10 +603,26 @@ body.f90-body {
   color: var(--f90-text-soft);
 }
 
+/* Markdown body inside the ticker insight pill */
 .f90-ticker-insight-body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--f90-text);
+
+  /* The important layout improvements */
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
+/* Optional – nice slim scrollbar */
+.f90-ticker-insight-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.f90-ticker-insight-body::-webkit-scrollbar-thumb {
+  background: var(--f90-accent-soft);
+  border-radius: 8px;
 }
 
 @keyframes f90-pill-in {

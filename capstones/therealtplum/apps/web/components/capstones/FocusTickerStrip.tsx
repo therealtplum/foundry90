@@ -7,6 +7,7 @@ import {
   getFocusTickerStrip,
   type FocusTickerStripItem,
 } from "@/lib/api";
+import { MarkdownCard } from "@/components/ui/MarkdownCard";
 
 /**
  * Raw items can have either:
@@ -145,6 +146,9 @@ export default function FocusTickerStrip() {
       : "f90-ticker-insight-flat"
   }`;
 
+  const selectedInsight =
+    selected?.recent_insight ?? selected?.short_insight ?? null;
+
   return (
     <>
       <div
@@ -243,9 +247,11 @@ export default function FocusTickerStrip() {
             <span className="f90-ticker-insight-name">{selected.name}</span>
           </div>
           <div className="f90-ticker-insight-body">
-            {selected.recent_insight ||
-              selected.short_insight ||
-              "No LLM insight cached yet for this instrument. Pipeline warming up."}
+            {selectedInsight ? (
+              <MarkdownCard markdown={selectedInsight} />
+            ) : (
+              "No LLM insight cached yet for this instrument. Pipeline warming up."
+            )}
           </div>
         </div>
       )}
