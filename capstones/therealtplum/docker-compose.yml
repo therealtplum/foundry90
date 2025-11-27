@@ -42,6 +42,17 @@ services:
       RUST_LOG: info
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: gpt-4.1-mini
+
+      # NEW: Used by system_health.rs → check_frontend_health()
+      # Inside the Docker network, the Next.js app is "web:3000".
+      FRONTEND_HEALTH_URL_LOCAL: "http://fmhub_web:3000/api/version"
+      FRONTEND_HEALTH_URL_PROD: "https://www.foundry90.com/api/version"
+
+      VERCEL_API_TOKEN: ${VERCEL_API_TOKEN}
+      VERCEL_PROJECT_ID: ${VERCEL_PROJECT_ID}
+      VERCEL_TEAM_ID: ${VERCEL_TEAM_ID} 
+
+      SKIP_VERCEL_COMPARE: ${SKIP_VERCEL_COMPARE}
     ports:
       - "3000:3000"
 
@@ -72,9 +83,11 @@ services:
     depends_on:
       - api
     environment:
+      # How the web app talks to the Rust API *inside* Docker
       NEXT_PUBLIC_API_BASE_URL: "http://fmhub_api:3000"
       NODE_ENV: production
     ports:
+      # Host: 3001 → Container: 3000
       - "3001:3000"
 
 volumes:

@@ -1,6 +1,5 @@
 import Foundation
 
-// Mirrors the JSON from /system/health
 struct SystemHealth: Codable {
     let api: String
     let db: String
@@ -8,7 +7,9 @@ struct SystemHealth: Codable {
     let lastEtlRunUtc: String?
     let etlStatus: String
     let recentErrors: Int
-    let dbTables: [String]?
+    let dbTables: [String]
+    let webLocal: WebHealth?
+    let webProd: WebHealth?
 
     enum CodingKeys: String, CodingKey {
         case api
@@ -18,24 +19,29 @@ struct SystemHealth: Codable {
         case etlStatus = "etl_status"
         case recentErrors = "recent_errors"
         case dbTables = "db_tables"
+        case webLocal = "web_local"
+        case webProd = "web_prod"
     }
 }
 
-protocol SystemHealthServiceType {
-    func fetchHealth() async throws -> SystemHealth
-}
+struct WebHealth: Codable {
+    let status: String
+    let url: String
+    let httpStatus: Int?
+    let buildCommit: String?
+    let buildBranch: String?
+    let deployedAtUtc: String?
+    let isLatest: Bool?
+    let lastCheckedUtc: String?
 
-struct SystemHealthService: SystemHealthServiceType {
-    let baseURL: URL
-
-    init(baseURL: URL = URL(string: "http://127.0.0.1:3000")!) {
-        self.baseURL = baseURL
-    }
-
-    func fetchHealth() async throws -> SystemHealth {
-        let url = baseURL.appendingPathComponent("system/health")
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let decoder = JSONDecoder()
-        return try decoder.decode(SystemHealth.self, from: data)
+    enum CodingKeys: String, CodingKey {
+        case status
+        case url
+        case httpStatus = "http_status"
+        case buildCommit = "build_commit"
+        case buildBranch = "build_branch"
+        case deployedAtUtc = "deployed_at_utc"
+        case isLatest = "is_latest"
+        case lastCheckedUtc = "last_checked_utc"
     }
 }
