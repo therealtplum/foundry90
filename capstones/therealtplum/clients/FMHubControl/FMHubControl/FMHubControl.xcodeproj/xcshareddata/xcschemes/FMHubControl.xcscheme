@@ -56,6 +56,11 @@
             value = "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum"
             isEnabled = "YES">
          </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "SAMPLE_TICKERS_LIMIT"
+            value = "100"
+            isEnabled = "YES">
+         </EnvironmentVariable>
       </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction

@@ -15,7 +15,7 @@ import psycopg2.extras
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
 
 # How many instruments to export from the latest focus snapshot
-SAMPLE_TICKERS_LIMIT = int(os.getenv("SAMPLE_TICKERS_LIMIT", "25"))
+SAMPLE_TICKERS_LIMIT = int(os.getenv("SAMPLE_TICKERS_LIMIT", "100"))
 
 # Which insight types to treat as "short" and "recent"
 SAMPLE_TICKERS_SHORT_KIND = os.getenv("SAMPLE_TICKERS_SHORT_KIND", "overview")
