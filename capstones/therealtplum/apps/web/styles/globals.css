@@ -1,20 +1,43 @@
 /* ===================================================================== */
-/*  GLOBAL TOKENS & BASE                                                 */
+/*  GLOBAL TOKENS & BASE – DEFAULT: FOUNDRY90 HACKER FINANCE THEME       */
 /* ===================================================================== */
 
 :root {
+  /* Color system – hacker default */
   --f90-bg: #050608;
   --f90-bg-soft: #0b0f14;
   --f90-bg-softer: #0f141b;
+
   --f90-border: #1b232e;
   --f90-border-soft: #151b23;
+
   --f90-text: #e5f0ff;
-  --f90-text-soft: #8b9bb3;
-  --f90-accent: #43ff8a;
+  --f90-text-soft: #8b9bb3;           /* hero / marketing soft text */
+  --f90-text-soft-terminal: #a7f3c5;  /* board / ticker soft text */
+
+  --f90-accent: #43ff8a;              /* primary neon accent */
   --f90-accent-soft: rgba(67, 255, 138, 0.12);
+  --f90-accent-mint: #a7f3c5;
+  --f90-accent-emerald: #10b981;
+
+  --f90-down-border: rgba(248, 113, 113, 0.9);
+  --f90-down-bg: rgba(239, 68, 68, 0.2);
+  --f90-down-text: #fecaca;
+
+  --f90-flat-border: rgba(148, 163, 184, 0.5);
+  --f90-flat-bg: rgba(148, 163, 184, 0.16);
+  --f90-flat-text: #e5e7eb;
+
+  /* Radii */
   --f90-radius-lg: 24px;
   --f90-radius-md: 16px;
   --f90-radius-sm: 999px;
+
+  /* Fonts */
+  --f90-font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", "Segoe UI", sans-serif;
+  --f90-font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 *,
@@ -29,27 +52,25 @@ body {
   padding: 0;
 }
 
+/* Base body – hacker theme default */
 body.f90-body {
   min-height: 100vh;
-  background: radial-gradient(circle at top left, #101726 0, #050608 55%);
+  background:
+    radial-gradient(circle at top left, #101726 0, #050608 55%),
+    radial-gradient(circle at bottom right, rgba(67, 255, 138, 0.04) 0, #050608 52%);
   color: var(--f90-text);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "SF Pro Display", "Segoe UI", sans-serif;
+  font-family: var(--f90-font-sans);
 }
 
 /* ===================================================================== */
-/*  LAYOUT & UTILITIES                                                   */
+/*  LAYOUT & UTILITIES (SHARED)                                          */
 /* ===================================================================== */
-
-/* Page layout */
 
 .f90-page {
   max-width: 1120px;
   margin: 0 auto;
   padding: 56px 20px 40px;
 }
-
-/* Glow Helpers */
 
 .f90-glow-green {
   box-shadow: 0 0 32px rgba(67, 255, 138, 0.25);
@@ -59,8 +80,6 @@ body.f90-body {
   text-shadow: 0 0 12px rgba(67, 255, 138, 0.35);
 }
 
-/* Utility Spacing */
-
 .f90-space-top {
   margin-top: 60px;
 }
@@ -69,7 +88,9 @@ body.f90-body {
   margin-bottom: 60px;
 }
 
-/* Typewriter effect */
+/* ===================================================================== */
+/*  TYPEWRITER EFFECT (SHARED)                                           */
+/* ===================================================================== */
 
 .f90-type {
   display: inline-block;
@@ -78,16 +99,18 @@ body.f90-body {
   border-right: 2px solid var(--f90-accent);
   padding-right: 4px;
 
+  /* typewriter mask */
+  width: 0;
+
+  /* FOUNDRY90_ = 10 chars → steps(10) */
   animation:
-    f90-typing 0.8s steps(14, end) forwards,
+    f90-typing 1.2s steps(10, end) forwards,
     f90-caret-blink 0.9s step-end infinite;
 }
 
 /* ===================================================================== */
-/*  MARKETING HERO / LANDING                                             */
+/*  MARKETING HERO / LANDING – HACKER DEFAULT                            */
 /* ===================================================================== */
-
-/* Hero */
 
 .f90-hero {
   display: grid;
@@ -119,15 +142,18 @@ body.f90-body {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--f90-text-soft);
-  background: rgba(5, 6, 8, 0.8);
+  background: linear-gradient(
+    120deg,
+    rgba(5, 6, 8, 0.92),
+    rgba(10, 21, 16, 0.96)
+  );
 }
 
 .f90-hero-title {
   font-size: clamp(42px, 5vw, 56px);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: var(--f90-font-mono);
 }
 
 .f90-hero-title-accent {
@@ -159,24 +185,31 @@ body.f90-body {
   text-decoration: none;
   border: 1px solid transparent;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms,
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    border-color 120ms,
     background 120ms;
 }
 
 .f90-btn-primary {
-  background: var(--f90-accent);
+  background: radial-gradient(circle at 20% -20%, #a7f3c5 0, #43ff8a 42%, #16a34a 100%);
   color: #010203;
-  box-shadow: 0 0 24px rgba(67, 255, 138, 0.4);
+  box-shadow:
+    0 0 24px rgba(67, 255, 138, 0.4),
+    0 0 60px rgba(15, 248, 121, 0.28);
 }
 
 .f90-btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 0 32px rgba(67, 255, 138, 0.6);
+  box-shadow:
+    0 0 32px rgba(67, 255, 138, 0.6),
+    0 0 80px rgba(15, 248, 121, 0.4);
 }
 
 .f90-btn-ghost {
   border-color: var(--f90-border);
-  background: rgba(11, 15, 20, 0.8);
+  background: radial-gradient(circle at top left, #0b0f14 0, #050608 80%);
   color: var(--f90-text-soft);
 }
 
@@ -193,14 +226,19 @@ body.f90-body {
   margin-top: 4px;
   color: var(--f90-text-soft);
   font-size: 12px;
+  font-family: var(--f90-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-/* Hero right panel */
+/* Hero right panel – hacker */
 
 .f90-hero-panel {
   border-radius: var(--f90-radius-lg);
   border: 1px solid var(--f90-border);
-  background: radial-gradient(circle at top, #182034 0, #06070a 60%);
+  background:
+    radial-gradient(circle at top, #182034 0, #06070a 60%),
+    radial-gradient(circle at bottom, rgba(15, 248, 121, 0.06) 0, #050608 55%);
   padding: 20px 20px 18px;
   display: flex;
   flex-direction: column;
@@ -222,8 +260,7 @@ body.f90-body {
   border-radius: var(--f90-radius-sm);
   border: 1px solid rgba(67, 255, 138, 0.6);
   color: var(--f90-accent);
-  font-family: "SF Mono", ui-monospace, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: var(--f90-font-mono);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   font-size: 13px;
@@ -259,6 +296,7 @@ body.f90-body {
   text-transform: uppercase;
   letter-spacing: 0.14em;
   margin-bottom: 6px;
+  font-family: var(--f90-font-mono);
 }
 
 .f90-metric-value {
@@ -307,36 +345,75 @@ body.f90-body {
 }
 
 /* ===================================================================== */
-/*  FULL-SCREEN FMHUB BOARD SHELL                                        */
+/*  THEME TOGGLE – HACKER DEFAULT                                        */
+/* ===================================================================== */
+
+.f90-theme-toggle-shell {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 120;
+}
+
+.f90-theme-toggle-btn {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid var(--f90-border);
+  background: radial-gradient(circle at top left, #0b0f14 0, #050608 90%);
+  color: var(--f90-text-soft);
+  cursor: pointer;
+
+  opacity: 0.16;
+  transform: translateY(4px);
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out,
+    box-shadow 160ms ease-out,
+    border-color 160ms ease-out;
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.f90-theme-toggle-btn:hover,
+.f90-theme-toggle-btn:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+  border-color: var(--f90-accent);
+  box-shadow:
+    0 0 14px rgba(67, 255, 138, 0.45),
+    0 0 36px rgba(15, 248, 121, 0.3);
+  outline: none;
+}
+
+/* ===================================================================== */
+/*  FULL-SCREEN FMHUB BOARD – HACKER DEFAULT                             */
 /* ===================================================================== */
 
 .fmhub-board-root {
   min-height: 100vh;
   background: #000000;
-  color: #a7f3c5;
+  color: var(--f90-text-soft-terminal);
   position: relative;
   overflow: hidden;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: var(--f90-font-mono);
 }
 
 .fmhub-board-status {
   min-height: 100vh;
   background: #000000;
-  color: #43ff8a;
+  color: var(--f90-accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: var(--f90-font-mono);
   font-size: 12px;
 }
 
 /* ===================================================================== */
-/*  NEON TICKER STRIP                                                     */
+/*  NEON TICKER STRIP – HACKER DEFAULT                                   */
 /* ===================================================================== */
-
-/* Ticker background */
 
 .f90-ticker-strip {
   position: absolute;
@@ -348,10 +425,8 @@ body.f90-body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 6vh 0; /* top/bottom breathing room */
+  padding: 6vh 0;
 }
-
-/* Rows */
 
 .f90-ticker-row {
   display: inline-flex;
@@ -385,11 +460,10 @@ body.f90-body {
   display: inline-flex;
   align-items: baseline;
   gap: 10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family: var(--f90-font-mono);
   font-size: 14px;
   letter-spacing: 0.02em;
-  color: #a7f3c5;
+  color: var(--f90-accent-mint);
   cursor: pointer;
   box-shadow:
     0 0 4px rgba(67, 255, 138, 0.25),
@@ -411,7 +485,7 @@ body.f90-body {
 
 .f90-ticker-symbol {
   font-weight: 700;
-  color: #43ff8a;
+  color: var(--f90-accent);
 }
 
 .f90-ticker-price {
@@ -421,24 +495,24 @@ body.f90-body {
 /* Chip variants by direction */
 
 .f90-ticker-chip-up {
-  border-color: rgba(34, 197, 94, 0.9);
+  border-color: var(--f90-accent-emerald);
   box-shadow:
     0 0 6px rgba(34, 197, 94, 0.6),
     inset 0 0 0 1px rgba(5, 6, 8, 0.95);
 }
 
 .f90-ticker-chip-down {
-  border-color: rgba(248, 113, 113, 0.9);
+  border-color: var(--f90-down-border);
   box-shadow:
     0 0 6px rgba(248, 113, 113, 0.6),
     inset 0 0 0 1px rgba(5, 6, 8, 0.95);
 }
 
 .f90-ticker-chip-flat {
-  border-color: rgba(148, 163, 184, 0.5);
+  border-color: var(--f90-flat-border);
 }
 
-/* Inline change badge inside chip */
+/* Inline change badge */
 
 .f90-ticker-chip-change {
   display: inline-flex;
@@ -452,17 +526,17 @@ body.f90-body {
 
 .f90-ticker-chip-change-up {
   background: rgba(16, 185, 129, 0.18);
-  color: #6ee7b7;
+  color: var(--f90-accent-mint);
 }
 
 .f90-ticker-chip-change-down {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fecaca;
+  background: var(--f90-down-bg);
+  color: var(--f90-down-text);
 }
 
 .f90-ticker-chip-change-flat {
-  background: rgba(148, 163, 184, 0.16);
-  color: #e5e7eb;
+  background: var(--f90-flat-bg);
+  color: var(--f90-flat-text);
 }
 
 .f90-ticker-chip-change-arrow {
@@ -474,7 +548,7 @@ body.f90-body {
 }
 
 /* ===================================================================== */
-/*  INSIGHT PILL                                                         */
+/*  INSIGHT PILL – HACKER DEFAULT                                        */
 /* ===================================================================== */
 
 .f90-ticker-insight {
@@ -487,36 +561,33 @@ body.f90-body {
   padding: 14px 18px;
   border-radius: 16px;
   border: 1px solid rgba(67, 255, 138, 0.7);
-  background: rgba(5, 6, 8, 0.97);
+  background: radial-gradient(circle at top left, #020617 0, #020617 32%, #020309 100%);
   box-shadow:
     0 22px 40px rgba(0, 0, 0, 0.85),
     0 0 0 1px rgba(15, 248, 121, 0.25);
 
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
-    "Segoe UI", sans-serif;
+  font-family: var(--f90-font-sans);
   color: var(--f90-text);
 
   animation: f90-pill-in 180ms ease-out;
 }
 
-/* Direction variants */
-
 .f90-ticker-insight-up {
-  border-color: rgba(34, 197, 94, 0.9);
+  border-color: var(--f90-accent-emerald);
   box-shadow:
     0 22px 40px rgba(16, 185, 129, 0.3),
     0 0 0 1px rgba(16, 185, 129, 0.4);
 }
 
 .f90-ticker-insight-down {
-  border-color: rgba(248, 113, 113, 0.9);
+  border-color: var(--f90-down-border);
   box-shadow:
     0 22px 40px rgba(239, 68, 68, 0.3),
     0 0 0 1px rgba(239, 68, 68, 0.4);
 }
 
 .f90-ticker-insight-flat {
-  border-color: rgba(148, 163, 184, 0.7);
+  border-color: var(--f90-flat-border);
   box-shadow:
     0 22px 40px rgba(15, 23, 42, 0.7),
     0 0 0 1px rgba(148, 163, 184, 0.4);
@@ -528,6 +599,10 @@ body.f90-body {
   align-items: baseline;
   gap: 6px 10px;
   margin-bottom: 8px;
+  font-family: var(--f90-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 11px;
 }
 
 .f90-ticker-insight-change {
@@ -543,17 +618,17 @@ body.f90-body {
 
 .f90-ticker-insight-change-up {
   background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
+  color: var(--f90-accent-mint);
 }
 
 .f90-ticker-insight-change-down {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fecaca;
+  background: var(--f90-down-bg);
+  color: var(--f90-down-text);
 }
 
 .f90-ticker-insight-change-flat {
   background: rgba(148, 163, 184, 0.12);
-  color: #e5e7eb;
+  color: var(--f90-flat-text);
 }
 
 .f90-ticker-insight-change-arrow {
@@ -573,28 +648,22 @@ body.f90-body {
   border-radius: 999px;
   background: rgba(5, 41, 16, 0.9);
   border: 1px solid rgba(67, 255, 138, 0.7);
-  color: #a7f3c5;
+  color: var(--f90-accent-mint);
 }
 
 .f90-ticker-insight-name {
   font-size: 13px;
-  color: var(--f90-text-soft);
+  color: var(--f90-text-soft-terminal);
 }
-
-/* Markdown body inside the ticker insight pill */
 
 .f90-ticker-insight-body {
   font-size: 13px;
   line-height: 1.5;
   color: var(--f90-text);
-
-  /* The important layout improvements */
   max-height: 60vh;
   overflow-y: auto;
   padding-right: 8px;
 }
-
-/* Optional – nice slim scrollbar */
 
 .f90-ticker-insight-body::-webkit-scrollbar {
   width: 6px;
@@ -606,7 +675,283 @@ body.f90-body {
 }
 
 /* ===================================================================== */
-/*  KEYFRAMES (COLLECTED)                                                */
+/*  THEME OVERRIDES – STRAWBERRY SHORTCAKE / HELLO KITTY                 */
+/* ===================================================================== */
+/* Add class="f90-body f90-theme-kawaii" to body to enable this theme    */
+
+body.f90-body.f90-theme-kawaii {
+  background:
+    radial-gradient(circle at top left, #ffe7f6 0, #fff5fb 40%, #ffe0f2 70%),
+    linear-gradient(145deg, #ffd1e8, #fff5fb);
+  color: #3b1f2b;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "SF Pro Display", "Segoe UI", sans-serif;
+
+  /* override some tokens */
+  --f90-bg: #fff5fb;
+  --f90-bg-soft: #ffe4f2;
+  --f90-bg-softer: #ffd6ec;
+  --f90-border: #ffb7d5;
+  --f90-border-soft: #ffc9e1;
+  --f90-text: #3b1f2b;
+  --f90-text-soft: #7b4b62;
+  --f90-accent: #ff4fa3;
+  --f90-accent-soft: rgba(255, 79, 163, 0.14);
+}
+
+/* glow tweaks */
+
+body.f90-theme-kawaii .f90-glow-green {
+  box-shadow: 0 0 32px rgba(255, 79, 163, 0.28);
+}
+
+body.f90-theme-kawaii .f90-text-glow {
+  text-shadow: 0 0 10px rgba(255, 79, 163, 0.45);
+}
+
+/* hero & controls */
+
+body.f90-theme-kawaii .f90-pill {
+  border-color: var(--f90-border);
+  color: var(--f90-text-soft);
+  background: linear-gradient(
+    120deg,
+    rgba(255, 255, 255, 0.96),
+    rgba(255, 228, 244, 0.96)
+  );
+}
+
+body.f90-theme-kawaii .f90-hero-title {
+  font-family: "Gill Sans", "Trebuchet MS", system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.f90-theme-kawaii .f90-hero-subtitle {
+  color: var(--f90-text-soft);
+  line-height: 1.6;
+}
+
+body.f90-theme-kawaii .f90-hero-meta {
+  font-family: inherit;
+  letter-spacing: 0.08em;
+}
+
+body.f90-theme-kawaii .f90-btn-primary {
+  background: radial-gradient(
+    circle at 20% -20%,
+    #fff0fa 0,
+    #ff9aca 40%,
+    #ff4fa3 100%
+  );
+  color: #3b1228;
+  box-shadow:
+    0 0 18px rgba(255, 79, 163, 0.4),
+    0 0 40px rgba(255, 170, 210, 0.5);
+}
+
+body.f90-theme-kawaii .f90-btn-primary:hover {
+  box-shadow:
+    0 0 24px rgba(255, 79, 163, 0.6),
+    0 0 60px rgba(255, 170, 210, 0.7);
+}
+
+body.f90-theme-kawaii .f90-btn-ghost {
+  border-color: var(--f90-border);
+  background: radial-gradient(circle at top left, #ffeaf7 0, #fff5fb 85%);
+  color: var(--f90-text-soft);
+}
+
+body.f90-theme-kawaii .f90-btn-ghost:hover {
+  border-color: var(--f90-accent);
+  color: var(--f90-accent);
+}
+
+/* theme toggle – kawaii */
+
+body.f90-theme-kawaii .f90-theme-toggle-btn {
+  background: radial-gradient(circle at top left, #ffeaf7 0, #ffd2ec 90%);
+  color: #7b4b62;
+  border-color: #ffb7d5;
+}
+
+body.f90-theme-kawaii .f90-theme-toggle-btn:hover,
+body.f90-theme-kawaii .f90-theme-toggle-btn:focus-visible {
+  box-shadow:
+    0 0 14px rgba(255, 79, 163, 0.5),
+    0 0 36px rgba(255, 170, 210, 0.45);
+}
+
+/* hero panel */
+
+body.f90-theme-kawaii .f90-hero-panel {
+  border-color: var(--f90-border);
+  background:
+    radial-gradient(circle at top, #ffe7f6 0, #ffd1e8 40%, #ffc1df 70%),
+    linear-gradient(160deg, #fff9fd, #ffd6eb);
+}
+
+body.f90-theme-kawaii .f90-hero-logo-card {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--f90-border-soft);
+}
+
+body.f90-theme-kawaii .f90-logo-pill {
+  border-color: rgba(255, 79, 163, 0.6);
+  color: var(--f90-accent);
+  font-family: "Gill Sans", "Trebuchet MS", system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body.f90-theme-kawaii .f90-logo-caption {
+  color: var(--f90-text-soft);
+}
+
+/* metrics */
+
+body.f90-theme-kawaii .f90-metric {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--f90-border-soft);
+}
+
+body.f90-theme-kawaii .f90-metric-value {
+  color: #d5287a;
+}
+
+body.f90-theme-kawaii .f90-metric-label,
+body.f90-theme-kawaii .f90-metric-note {
+  color: var(--f90-text-soft);
+}
+
+/* footer */
+
+body.f90-theme-kawaii .f90-footer {
+  border-top-color: var(--f90-border);
+  color: var(--f90-text-soft);
+}
+
+body.f90-theme-kawaii .f90-footer-link {
+  color: var(--f90-text-soft);
+}
+
+/* board */
+
+body.f90-theme-kawaii .fmhub-board-root {
+  background: linear-gradient(180deg, #fff5fb 0, #ffe3f4 40%, #ffd2ec 100%);
+  color: #5a3051;
+  font-family: "Courier New", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+body.f90-theme-kawaii .fmhub-board-status {
+  background: #ffeaf7;
+  color: #ff4fa3;
+  font-family: "Courier New", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+/* ticker – kawaii */
+
+body.f90-theme-kawaii .f90-ticker-chip {
+  border-color: rgba(255, 79, 163, 0.4);
+  background: rgba(255, 255, 255, 0.96);
+  color: #5a3051;
+  box-shadow:
+    0 0 4px rgba(255, 79, 163, 0.25),
+    inset 0 0 0 1px rgba(255, 235, 245, 0.9);
+  font-family: "Courier New", ui-monospace, Menlo, Monaco, Consolas,
+    "Liberation Mono", monospace;
+}
+
+body.f90-theme-kawaii .f90-ticker-chip:hover {
+  background: #ffe9f7;
+  box-shadow:
+    0 0 10px rgba(255, 79, 163, 0.7),
+    0 0 26px rgba(255, 179, 216, 0.6);
+}
+
+body.f90-theme-kawaii .f90-ticker-symbol {
+  color: #ff4fa3;
+}
+
+/* direction variants */
+
+body.f90-theme-kawaii .f90-ticker-chip-up {
+  border-color: rgba(56, 189, 148, 0.9);
+  box-shadow:
+    0 0 6px rgba(56, 189, 148, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.95);
+}
+
+body.f90-theme-kawaii .f90-ticker-chip-down {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    0 0 6px rgba(248, 113, 113, 0.6),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.95);
+}
+
+body.f90-theme-kawaii .f90-ticker-chip-flat {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+body.f90-theme-kawaii .f90-ticker-chip-change-up {
+  background: rgba(16, 185, 129, 0.16);
+  color: #158f71;
+}
+
+body.f90-theme-kawaii .f90-ticker-chip-change-down {
+  background: rgba(248, 113, 113, 0.2);
+  color: #b91c1c;
+}
+
+body.f90-theme-kawaii .f90-ticker-chip-change-flat {
+  background: rgba(148, 163, 184, 0.16);
+  color: #4b5563;
+}
+
+/* insight pill – kawaii */
+
+body.f90-theme-kawaii .f90-ticker-insight {
+  border-color: rgba(255, 79, 163, 0.7);
+  background: radial-gradient(circle at top left, #fffafc 0, #ffe9f7 45%, #ffd2ec 100%);
+  box-shadow:
+    0 22px 40px rgba(214, 93, 145, 0.4),
+    0 0 0 1px rgba(255, 182, 212, 0.8);
+  color: var(--f90-text);
+}
+
+body.f90-theme-kawaii .f90-ticker-insight-up {
+  border-color: rgba(56, 189, 148, 0.9);
+  box-shadow:
+    0 22px 40px rgba(56, 189, 148, 0.3),
+    0 0 0 1px rgba(16, 185, 129, 0.4);
+}
+
+body.f90-theme-kawaii .f90-ticker-insight-down {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    0 22px 40px rgba(248, 113, 113, 0.3),
+    0 0 0 1px rgba(239, 68, 68, 0.4);
+}
+
+body.f90-theme-kawaii .f90-ticker-insight-flat {
+  border-color: rgba(148, 163, 184, 0.7);
+  box-shadow:
+    0 22px 40px rgba(148, 163, 184, 0.35),
+    0 0 0 1px rgba(148, 163, 184, 0.4);
+}
+
+body.f90-theme-kawaii .f90-ticker-insight-symbol {
+  background: #ffeff8;
+  border-color: rgba(255, 79, 163, 0.7);
+  color: #d5287a;
+}
+
+body.f90-theme-kawaii .f90-ticker-insight-name {
+  color: var(--f90-text-soft);
+}
+
+/* ===================================================================== */
+/*  KEYFRAMES (SHARED)                                                   */
 /* ===================================================================== */
 
 @keyframes f90-typing {
@@ -614,7 +959,7 @@ body.f90-body {
     width: 0;
   }
   to {
-    width: 13ch;
+    width: 16ch; /* tuned so FOUNDRY90_ fits without clipping */
   }
 }
 
