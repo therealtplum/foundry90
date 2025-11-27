@@ -1,3 +1,7 @@
+/* ===================================================================== */
+/*  GLOBAL TOKENS & BASE                                                 */
+/* ===================================================================== */
+
 :root {
   --f90-bg: #050608;
   --f90-bg-soft: #0b0f14;
@@ -33,6 +37,10 @@ body.f90-body {
     "SF Pro Display", "Segoe UI", sans-serif;
 }
 
+/* ===================================================================== */
+/*  LAYOUT & UTILITIES                                                   */
+/* ===================================================================== */
+
 /* Page layout */
 
 .f90-page {
@@ -40,6 +48,44 @@ body.f90-body {
   margin: 0 auto;
   padding: 56px 20px 40px;
 }
+
+/* Glow Helpers */
+
+.f90-glow-green {
+  box-shadow: 0 0 32px rgba(67, 255, 138, 0.25);
+}
+
+.f90-text-glow {
+  text-shadow: 0 0 12px rgba(67, 255, 138, 0.35);
+}
+
+/* Utility Spacing */
+
+.f90-space-top {
+  margin-top: 60px;
+}
+
+.f90-space-bottom {
+  margin-bottom: 60px;
+}
+
+/* Typewriter effect */
+
+.f90-type {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--f90-accent);
+  padding-right: 4px;
+
+  animation:
+    f90-typing 0.8s steps(14, end) forwards,
+    f90-caret-blink 0.9s step-end infinite;
+}
+
+/* ===================================================================== */
+/*  MARKETING HERO / LANDING                                             */
+/* ===================================================================== */
 
 /* Hero */
 
@@ -260,60 +306,8 @@ body.f90-body {
   opacity: 0.9;
 }
 
-/* Glow Helpers */
-
-.f90-glow-green {
-  box-shadow: 0 0 32px rgba(67, 255, 138, 0.25);
-}
-
-.f90-text-glow {
-  text-shadow: 0 0 12px rgba(67, 255, 138, 0.35);
-}
-
-/* Utility Spacing */
-
-.f90-space-top {
-  margin-top: 60px;
-}
-
-.f90-space-bottom {
-  margin-bottom: 60px;
-}
-
-/* Typewriter effect */
-.f90-type {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 2px solid var(--f90-accent);
-  padding-right: 4px;
-
-  animation:
-    f90-typing 0.8s steps(14, end) forwards,
-    f90-caret-blink 0.9s step-end infinite;
-}
-
-@keyframes f90-typing {
-  from {
-    width: 0;
-  }
-  to {
-    width: 13ch;
-  }
-}
-
-@keyframes f90-caret-blink {
-  0%,
-  100% {
-    border-color: transparent;
-  }
-  50% {
-    border-color: var(--f90-accent);
-  }
-}
-
 /* ===================================================================== */
-/*  FULL-SCREEN FMHUB BOARD + NEON TICKER STRIP                          */
+/*  FULL-SCREEN FMHUB BOARD SHELL                                        */
 /* ===================================================================== */
 
 .fmhub-board-root {
@@ -338,6 +332,10 @@ body.f90-body {
   font-size: 12px;
 }
 
+/* ===================================================================== */
+/*  NEON TICKER STRIP                                                     */
+/* ===================================================================== */
+
 /* Ticker background */
 
 .f90-ticker-strip {
@@ -350,7 +348,7 @@ body.f90-body {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 10vh 0; /* top/bottom breathing room */
+  padding: 6vh 0; /* top/bottom breathing room */
 }
 
 /* Rows */
@@ -475,28 +473,8 @@ body.f90-body {
   font-variant-numeric: tabular-nums;
 }
 
-/* Keyframes */
-
-@keyframes f90-scroll-left {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-@keyframes f90-scroll-right {
-  0% {
-    transform: translateX(-50%);
-  }
-  100% {
-    transform: translateX(0%);
-  }
-}
-
 /* ===================================================================== */
-/* Insight Pill — unified, deduped                                       */
+/*  INSIGHT PILL                                                         */
 /* ===================================================================== */
 
 .f90-ticker-insight {
@@ -604,6 +582,7 @@ body.f90-body {
 }
 
 /* Markdown body inside the ticker insight pill */
+
 .f90-ticker-insight-body {
   font-size: 13px;
   line-height: 1.5;
@@ -616,6 +595,7 @@ body.f90-body {
 }
 
 /* Optional – nice slim scrollbar */
+
 .f90-ticker-insight-body::-webkit-scrollbar {
   width: 6px;
 }
@@ -623,6 +603,47 @@ body.f90-body {
 .f90-ticker-insight-body::-webkit-scrollbar-thumb {
   background: var(--f90-accent-soft);
   border-radius: 8px;
+}
+
+/* ===================================================================== */
+/*  KEYFRAMES (COLLECTED)                                                */
+/* ===================================================================== */
+
+@keyframes f90-typing {
+  from {
+    width: 0;
+  }
+  to {
+    width: 13ch;
+  }
+}
+
+@keyframes f90-caret-blink {
+  0%,
+  100% {
+    border-color: transparent;
+  }
+  50% {
+    border-color: var(--f90-accent);
+  }
+}
+
+@keyframes f90-scroll-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes f90-scroll-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
 }
 
 @keyframes f90-pill-in {

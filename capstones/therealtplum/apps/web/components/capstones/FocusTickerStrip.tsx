@@ -124,7 +124,7 @@ export default function FocusTickerStrip() {
   }`;
 
   // Fixed “board” look: up to 6 rows, but never more than we have items
-  const MAX_ROWS = 6;
+  const MAX_ROWS = 8;
   const rowCount = Math.min(MAX_ROWS, items.length);
 
   // Round-robin partition: each ticker goes to exactly one row,
