@@ -572,6 +572,6 @@ alias f90-panic='cd "$FOUNDRY90_ROOT" && ./ops/panic.sh'
 
 ---
 
-**Last Updated:** 2024
+**Last Updated:** 2025
 **Version:** 2.0
 
