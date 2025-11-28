@@ -75,8 +75,17 @@ services:
       PRICE_PREV_MAX_INSTRUMENTS: ${PRICE_PREV_MAX_INSTRUMENTS:-2000}
       PRICE_PREV_SLEEP_SECS: ${PRICE_PREV_SLEEP_SECS:-0.02}
       PRICE_PREV_BATCH_SIZE: ${PRICE_PREV_BATCH_SIZE:-500}
+      # Kalshi API credentials (for local testing)
+      KALSHI_API_KEY_ID: ${KALSHI_API_KEY_ID}
+      KALSHI_API_SECRET: ${KALSHI_API_SECRET}
+      KALSHI_API_SECRET_FILE: ${KALSHI_API_SECRET_FILE}
+      KALSHI_USER_ID: ${KALSHI_USER_ID}
+      KALSHI_USE_ENV_CREDS: ${KALSHI_USE_ENV_CREDS:-false}
+      KALSHI_BASE_URL: ${KALSHI_BASE_URL:-https://api.elections.kalshi.com/trade-api/v2}
+      KALSHI_CREDENTIALS_ENCRYPTION_KEY: ${KALSHI_CREDENTIALS_ENCRYPTION_KEY}
     volumes:
       - ./apps/web/data:/export/web-data
+      - ./.env.kalshi_key:/app/.env.kalshi_key:ro
     # Do nothing by default; we trigger jobs with `docker compose run --rm etl ...`
     command: ["sleep", "infinity"]
 

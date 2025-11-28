@@ -288,12 +288,10 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
-        .route("/market/status", get(get_market_status_handler))
-        // Kalshi API endpoints
+        // Kalshi endpoints
         .route("/kalshi/markets", get(kalshi::list_kalshi_markets_handler))
         .route("/kalshi/markets/{ticker}", get(kalshi::get_kalshi_market_handler))
         .route("/kalshi/users/{user_id}/account", get(kalshi::get_kalshi_user_account_handler))
-        .route("/kalshi/users/{user_id}/account/refresh", get(kalshi::refresh_kalshi_user_account_handler))
         .route("/kalshi/users/{user_id}/balance", get(kalshi::get_kalshi_user_balance_handler))
         .route("/kalshi/users/{user_id}/positions", get(kalshi::get_kalshi_user_positions_handler))
         .with_state(state)
