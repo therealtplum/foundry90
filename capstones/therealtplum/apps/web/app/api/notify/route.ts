@@ -132,16 +132,33 @@ async function insertEmail(
 }
 
 export async function POST(request: NextRequest) {
+  // Debug: Log environment info
+  console.log("NODE_ENV:", process.env.NODE_ENV);
+  console.log("DATABASE_URL exists:", !!process.env.DATABASE_URL);
+  console.log("All DATABASE/POSTGRES env vars:", Object.keys(process.env).filter(k => 
+    k.includes("DATABASE") || k.includes("POSTGRES") || k.includes("SUPABASE")
+  ));
+
   // Check if DATABASE_URL is configured
-  if (!process.env.DATABASE_URL && process.env.NODE_ENV === "production") {
-    console.error("DATABASE_URL is not configured in production environment");
-    return NextResponse.json(
-      { 
-        error: "Server configuration error. Please contact support.",
-        details: "Database connection not configured"
-      },
-      { status: 500 }
-    );
+  if (!process.env.DATABASE_URL) {
+    console.error("DATABASE_URL is not configured");
+    // In development, allow fallback; in production, fail
+    if (process.env.NODE_ENV === "production") {
+      return NextResponse.json(
+        { 
+          error: "Server configuration error. Please contact support.",
+          details: "Database connection not configured. DATABASE_URL environment variable is missing."
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Log DATABASE_URL status (without exposing the full connection string)
+  if (process.env.DATABASE_URL) {
+    const dbUrl = process.env.DATABASE_URL;
+    const maskedUrl = dbUrl.replace(/:[^:@]+@/, ":****@"); // Mask password
+    console.log("DATABASE_URL is set:", maskedUrl.substring(0, 80) + "...");
   }
 
   try {

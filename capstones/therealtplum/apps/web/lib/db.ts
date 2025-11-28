@@ -29,6 +29,8 @@ function getPool(): Pool {
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000, // Increased from 2000ms to 5000ms
+      // Supabase requires SSL
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
     });
 
     // Handle pool errors
