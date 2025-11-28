@@ -22,6 +22,7 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+.env.kalshi_key
 
 # ---- Kalshi private keys ----
 .kalshi_keys/
