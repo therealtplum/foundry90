@@ -2,9 +2,11 @@ import os
 import sys
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import requests
 import psycopg2
 import psycopg2.extras
 
@@ -14,8 +16,13 @@ import psycopg2.extras
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
 
+POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
+
 # How many instruments to export from the latest focus snapshot
 SAMPLE_TICKERS_LIMIT = int(os.getenv("SAMPLE_TICKERS_LIMIT", "100"))
+
+# Small sleep between Polygon API requests to be nice to their API
+POLYGON_REQUEST_SLEEP_SECS = float(os.getenv("POLYGON_REQUEST_SLEEP_SECS", "0.02"))
 
 # Which insight types to treat as "short" and "recent"
 SAMPLE_TICKERS_SHORT_KIND = os.getenv("SAMPLE_TICKERS_SHORT_KIND", "overview")
@@ -45,6 +52,63 @@ log = logging.getLogger(__name__)
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
+
+
+# -------------------------------------------------------------------
+# Polygon API helpers
+# -------------------------------------------------------------------
+
+
+def fetch_ticker_snapshot(ticker: str) -> Optional[float]:
+    """
+    Fetch ticker snapshot from Polygon API and extract todaysChangePerc.
+    
+    Returns:
+        Percentage change as a float (e.g., 1.5 for +1.5%), or None if unavailable.
+    """
+    if not POLYGON_API_KEY:
+        log.warning("POLYGON_API_KEY not set; skipping percentage change fetch from Polygon")
+        return None
+    
+    url = f"https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/{ticker}"
+    params = {
+        "apiKey": POLYGON_API_KEY,
+    }
+    
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        log.debug(f"ticker={ticker}: request error from Polygon snapshot endpoint: {e}")
+        return None
+    
+    try:
+        data = resp.json()
+    except json.JSONDecodeError as e:
+        log.debug(f"ticker={ticker}: failed to decode JSON: {e}")
+        return None
+    
+    if data.get("status") != "OK":
+        log.debug(f"ticker={ticker}: non-OK status from Polygon snapshot endpoint")
+        return None
+    
+    # Try different possible response structures
+    ticker_data = data.get("ticker") or data.get("results", {}).get("ticker")
+    if not ticker_data:
+        log.debug(f"ticker={ticker}: no ticker data in snapshot response")
+        return None
+    
+    # todaysChangePerc is the percentage change field
+    change_perc = ticker_data.get("todaysChangePerc")
+    if change_perc is None:
+        log.debug(f"ticker={ticker}: no todaysChangePerc in snapshot response")
+        return None
+    
+    try:
+        return float(change_perc)
+    except (ValueError, TypeError) as e:
+        log.debug(f"ticker={ticker}: error parsing todaysChangePerc: {e}")
+        return None
 
 
 # -------------------------------------------------------------------
@@ -243,6 +307,27 @@ def main():
             return
 
         log.info(f"Fetched {len(sample_tickers)} sample tickers from DB.")
+
+        # Fetch percentage change from Polygon for each ticker
+        if POLYGON_API_KEY:
+            log.info("Fetching day-over-day percentage change from Polygon API...")
+            for idx, row in enumerate(sample_tickers, start=1):
+                ticker = row["ticker"]
+                if idx % 10 == 0:
+                    log.info(f"Fetched percentage change for {idx}/{len(sample_tickers)} tickers...")
+                
+                change_perc = fetch_ticker_snapshot(ticker)
+                if change_perc is not None:
+                    row["day_over_day_change_percent"] = change_perc
+                else:
+                    # If Polygon doesn't have it, we'll leave it null and frontend can calculate
+                    row["day_over_day_change_percent"] = None
+                
+                if POLYGON_REQUEST_SLEEP_SECS > 0:
+                    time.sleep(POLYGON_REQUEST_SLEEP_SECS)
+            log.info("Finished fetching percentage changes from Polygon.")
+        else:
+            log.info("POLYGON_API_KEY not set; skipping percentage change fetch.")
 
         # Apply sticky prior-close logic
         for row in sample_tickers:

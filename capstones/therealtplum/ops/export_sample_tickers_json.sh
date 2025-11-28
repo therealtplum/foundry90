@@ -21,6 +21,11 @@ echo "[export_sample_tickers] $(TS) SAMPLE_TICKERS_LIMIT=$SAMPLE_TICKERS_LIMIT"
 
 cd "$PROJECT_ROOT"
 
+# Load POLYGON_API_KEY from .env if it exists and isn't already set
+if [ -f "$PROJECT_ROOT/.env" ] && [ -z "${POLYGON_API_KEY:-}" ]; then
+  export $(grep -E "^POLYGON_API_KEY=" "$PROJECT_ROOT/.env" | xargs)
+fi
+
 # Sanity check
 if ! command -v docker >/dev/null 2>&1; then
   echo "[export_sample_tickers] $(TS) ERROR: docker command not found on PATH." >&2
@@ -47,6 +52,7 @@ echo "[export_sample_tickers] $(TS) SAMPLE_TICKERS_OUTPUT_PATH=$EXPORT_PATH"
 docker compose run --rm \
   -e SAMPLE_TICKERS_OUTPUT_PATH="$EXPORT_PATH" \
   -e SAMPLE_TICKERS_LIMIT="$SAMPLE_TICKERS_LIMIT" \
+  -e POLYGON_API_KEY="${POLYGON_API_KEY:-}" \
   etl python -m etl.export_sample_tickers_json
 
 echo "[export_sample_tickers] $(TS) Export complete."
