@@ -7,6 +7,7 @@ enum OperationType: String {
     case runFullEtl = "Run Full ETL"
     case exportSampleTickers = "Update Sample Tickers"
     case rebuildWebWithGit = "Rebuild Web (Current Commit)"
+    case runRegression = "Run Regression"
     case panic = "PANIC"
 }
 
@@ -24,17 +25,45 @@ final class OperationsViewModel: ObservableObject {
 
     /// Resolve the repo root in a portable way:
     /// 1. If FOUNDRY90_ROOT is set, use that.
-    /// 2. Otherwise, fall back to the current working directory.
+    /// 2. Try to find the project root by looking for the ops directory relative to common locations.
+    /// 3. Otherwise, fall back to the current working directory.
     private static func resolveRepoRoot() -> URL {
         let env = ProcessInfo.processInfo.environment
 
+        // 1. Check environment variable first
         if let envPath = env["FOUNDRY90_ROOT"],
            !envPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return URL(fileURLWithPath: envPath, isDirectory: true)
+            let url = URL(fileURLWithPath: envPath, isDirectory: true)
+            if FileManager.default.fileExists(atPath: url.appendingPathComponent("ops").path) {
+                return url
+            }
         }
 
+        // 2. Try common locations relative to home directory
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let commonPaths = [
+            "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum",
+            "\(homeDir)/foundry90/capstones/therealtplum",
+            "\(homeDir)/projects/foundry90/capstones/therealtplum",
+        ]
+        
+        for path in commonPaths {
+            let url = URL(fileURLWithPath: path, isDirectory: true)
+            if FileManager.default.fileExists(atPath: url.appendingPathComponent("ops").path) {
+                return url
+            }
+        }
+        
+        // 3. Try current working directory
         let cwd = FileManager.default.currentDirectoryPath
-        return URL(fileURLWithPath: cwd, isDirectory: true)
+        let cwdURL = URL(fileURLWithPath: cwd, isDirectory: true)
+        if FileManager.default.fileExists(atPath: cwdURL.appendingPathComponent("ops").path) {
+            return cwdURL
+        }
+        
+        // 4. Last resort: return the default expected path
+        let defaultPath = "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum"
+        return URL(fileURLWithPath: defaultPath, isDirectory: true)
     }
 
     func run(_ op: OperationType) {
@@ -61,6 +90,8 @@ final class OperationsViewModel: ObservableObject {
             scriptName = "export_sample_tickers_json.sh"
         case .rebuildWebWithGit:
             scriptName = "rebuild_web_with_git.sh"
+        case .runRegression:
+            scriptName = "run_regression.sh"
         case .panic:
             scriptName = "panic.sh"
         }
@@ -74,6 +105,15 @@ final class OperationsViewModel: ObservableObject {
                 self.isRunning = false
                 self.logText.append(
                     "\n[\(self.timestamp())] Script not found at \(scriptURL.path)\n"
+                )
+                self.logText.append(
+                    "[\(self.timestamp())] Repo root resolved to: \(self.repoRoot.path)\n"
+                )
+                self.logText.append(
+                    "[\(self.timestamp())] FOUNDRY90_ROOT env: \(ProcessInfo.processInfo.environment["FOUNDRY90_ROOT"] ?? "not set")\n"
+                )
+                self.logText.append(
+                    "[\(self.timestamp())] Current working directory: \(FileManager.default.currentDirectoryPath)\n"
                 )
                 self.currentOperation = nil
             }

@@ -54,6 +54,8 @@ services:
 
       # Allow you to bypass Vercel comparison if needed
       SKIP_VERCEL_COMPARE: ${SKIP_VERCEL_COMPARE}
+    volumes:
+      - ./logs:/app/logs:ro
     ports:
       - "3000:3000"
 
