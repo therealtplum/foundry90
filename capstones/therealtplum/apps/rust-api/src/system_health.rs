@@ -1,5 +1,6 @@
 use axum::{extract::State, Json};
 use serde::{Serialize, Deserialize};
+use serde_json;
 use sqlx::{Row, PgPool};
 use tracing::{error, info, warn};
 
@@ -23,6 +24,16 @@ pub struct SystemHealth {
     pub db_tables: Vec<String>,
     pub web_local: Option<WebHealth>,
     pub web_prod: Option<WebHealth>,
+    pub regression_test: Option<RegressionTestResults>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct RegressionTestResults {
+    pub last_run_utc: Option<String>,
+    pub passed: i32,
+    pub failed: i32,
+    pub warnings: i32,
+    pub success: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -74,6 +85,39 @@ struct VercelDeploymentMeta {
     git_commit_sha: Option<String>,
     #[serde(rename = "githubCommitSha")]
     github_commit_sha: Option<String>,
+}
+
+// --------------------------------------------------
+// Regression test helper
+// --------------------------------------------------
+
+/// Read regression test results from JSON file.
+/// The file is written to the project's logs directory, which should be accessible
+/// via a volume mount or the same filesystem.
+async fn get_regression_test_results() -> Option<RegressionTestResults> {
+    use std::fs;
+
+    // The regression script writes to PROJECT_ROOT/logs/regression_results.json
+    // When the API runs in Docker, the logs directory is mounted at /app/logs
+    let possible_paths = vec![
+        "/app/logs/regression_results.json",     // Docker mount point
+        "./logs/regression_results.json",       // Relative to current dir
+        "../logs/regression_results.json",      // One level up
+        "../../logs/regression_results.json",    // Two levels up (from apps/rust-api)
+    ];
+
+    for path in possible_paths {
+        if let Ok(contents) = fs::read_to_string(path) {
+            if let Ok(parsed) = serde_json::from_str::<RegressionTestResults>(&contents) {
+                info!("Loaded regression test results from {}", path);
+                return Some(parsed);
+            } else {
+                warn!("Failed to parse regression results from {}", path);
+            }
+        }
+    }
+
+    None
 }
 
 // --------------------------------------------------
@@ -355,6 +399,9 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     let etl_status = "idle".to_string();
     let recent_errors = 0;
 
+    // Regression test results
+    let regression_test = get_regression_test_results().await;
+
     // Should we hit Vercel?
     let skip_vercel = env::var("SKIP_VERCEL_COMPARE")
         .map(|v| v == "true" || v == "1")
@@ -388,5 +435,6 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
         db_tables,
         web_local,
         web_prod,
+        regression_test,
     })
 }

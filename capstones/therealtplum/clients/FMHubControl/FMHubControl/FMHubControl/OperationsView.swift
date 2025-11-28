@@ -121,6 +121,10 @@ struct OperationsView: View {
                 opButton(.runFullEtl, systemImage: "bolt.fill")
                 opButton(.exportSampleTickers, systemImage: "doc.text.fill")
                 opButton(.rebuildWebWithGit, systemImage: "arrow.triangle.2.circlepath")
+                
+                Divider().background(Color.white.opacity(0.1))
+                
+                opButton(.runRegression, systemImage: "checkmark.seal.fill")
             }
 
             Divider().background(Color.white.opacity(0.1))

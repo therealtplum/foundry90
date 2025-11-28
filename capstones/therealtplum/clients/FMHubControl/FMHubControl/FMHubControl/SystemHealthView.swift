@@ -17,6 +17,7 @@ struct SystemHealthView: View {
                 statusRow
                 webPanel
                 dbSchemaPanel
+                regressionPanel
                 etlPanel
                 Spacer()
             }
@@ -332,6 +333,77 @@ struct SystemHealthView: View {
         .cornerRadius(16)
     }
 
+    // MARK: - Regression test panel
+
+    private var regressionPanel: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Regression Test")
+                .font(.headline)
+
+            if let regression = viewModel.health?.regressionTest {
+                HStack {
+                    Text("Last run (UTC):")
+                        .foregroundColor(.white.opacity(0.6))
+                    Text(regression.lastRunUtc ?? "Unknown")
+                }
+
+                if let utcString = regression.lastRunUtc {
+                    HStack {
+                        Text("Last run (Local):")
+                            .foregroundColor(.white.opacity(0.6))
+                        Text(formatUtcToLocal(utcString))
+                    }
+                }
+
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Text("✅")
+                        Text("\(regression.passed)")
+                            .fontWeight(.medium)
+                    }
+                    .foregroundColor(.green)
+
+                    if regression.failed > 0 {
+                        HStack(spacing: 4) {
+                            Text("❌")
+                            Text("\(regression.failed)")
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(.red)
+                    }
+
+                    if regression.warnings > 0 {
+                        HStack(spacing: 4) {
+                            Text("⚠️")
+                            Text("\(regression.warnings)")
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(.orange)
+                    }
+                }
+
+                HStack {
+                    Text("Status:")
+                        .foregroundColor(.white.opacity(0.6))
+                    Text(regression.success ? "All tests passed" : "Some tests failed")
+                        .fontWeight(.medium)
+                        .foregroundColor(regression.success ? .green : .red)
+                }
+            } else {
+                Text("No regression test results available")
+                    .foregroundColor(.white.opacity(0.6))
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.03))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+        )
+        .cornerRadius(16)
+    }
+
     // MARK: - ETL panel
 
     private var etlPanel: some View {
@@ -351,6 +423,14 @@ struct SystemHealthView: View {
                     Text("Last run (UTC):")
                         .foregroundColor(.white.opacity(0.6))
                     Text(health.lastEtlRunUtc ?? "Unknown")
+                }
+
+                if let utcString = health.lastEtlRunUtc {
+                    HStack {
+                        Text("Last run (Local):")
+                            .foregroundColor(.white.opacity(0.6))
+                        Text(formatUtcToLocal(utcString))
+                    }
                 }
 
                 HStack {
@@ -374,5 +454,31 @@ struct SystemHealthView: View {
                 .stroke(Color.white.opacity(0.05), lineWidth: 1)
         )
         .cornerRadius(16)
+    }
+
+    // MARK: - Helper functions
+
+    private func formatUtcToLocal(_ utcString: String) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        
+        guard let date = formatter.date(from: utcString) else {
+            // Try without fractional seconds
+            formatter.formatOptions = [.withInternetDateTime]
+            guard let date = formatter.date(from: utcString) else {
+                return utcString // Return original if parsing fails
+            }
+            return formatDateToLocal(date)
+        }
+        
+        return formatDateToLocal(date)
+    }
+    
+    private func formatDateToLocal(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .medium
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: date)
     }
 }

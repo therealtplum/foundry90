@@ -10,6 +10,7 @@ struct SystemHealth: Codable {
     let dbTables: [String]
     let webLocal: WebHealth?
     let webProd: WebHealth?
+    let regressionTest: RegressionTestResults?
 
     enum CodingKeys: String, CodingKey {
         case api
@@ -21,6 +22,23 @@ struct SystemHealth: Codable {
         case dbTables = "db_tables"
         case webLocal = "web_local"
         case webProd = "web_prod"
+        case regressionTest = "regression_test"
+    }
+}
+
+struct RegressionTestResults: Codable {
+    let lastRunUtc: String?
+    let passed: Int
+    let failed: Int
+    let warnings: Int
+    let success: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case lastRunUtc = "last_run_utc"
+        case passed
+        case failed
+        case warnings
+        case success
     }
 }
 
