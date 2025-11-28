@@ -1049,6 +1049,42 @@ body.f90-theme-kawaii .f90-ticker-insight-name {
   }
 }
 
+.f90-coming-soon-dismiss {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--f90-radius-sm);
+  border: 1px solid rgba(67, 255, 138, 0.4);
+  background: rgba(5, 6, 8, 0.8);
+  color: var(--f90-text-soft);
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+  padding: 0;
+  z-index: 1;
+}
+
+.f90-coming-soon-dismiss:hover {
+  border-color: rgba(67, 255, 138, 0.8);
+  color: var(--f90-accent-mint);
+  background: rgba(5, 41, 16, 0.6);
+  box-shadow: 0 0 12px rgba(67, 255, 138, 0.3);
+}
+
+.f90-coming-soon-dismiss:active {
+  transform: scale(0.95);
+}
+
 .f90-coming-soon-header {
   margin-bottom: 20px;
   text-align: center;

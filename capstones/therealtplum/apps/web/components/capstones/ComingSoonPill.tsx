@@ -9,6 +9,7 @@ export default function ComingSoonPill() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<SubmissionState>("idle");
   const [message, setMessage] = useState("");
+  const [dismissed, setDismissed] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -65,8 +66,19 @@ export default function ComingSoonPill() {
     }
   };
 
+  if (dismissed) {
+    return null;
+  }
+
   return (
     <div className="f90-coming-soon-pill">
+      <button
+        onClick={() => setDismissed(true)}
+        className="f90-coming-soon-dismiss"
+        aria-label="Dismiss"
+      >
+        ×
+      </button>
       <div className="f90-coming-soon-header">
         <span className="f90-coming-soon-label">COMING SOON</span>
       </div>
