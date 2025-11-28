@@ -146,7 +146,7 @@ struct ChatMessage {
 impl ChatClient {
     fn from_env() -> Option<Self> {
         let api_key = env::var("OPENAI_API_KEY").ok()?;
-        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4.1-mini".to_string());
+        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
 
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
@@ -165,32 +165,157 @@ impl ChatClient {
         instrument: &InstrumentDetail,
         kind: &str,
         horizon_days: i32,
+        db_pool: &PgPool,
     ) -> anyhow::Result<String> {
+        eprintln!("🚨🚨🚨 generate_insight CALLED: instrument_id={}, ticker={}, kind={}, horizon_days={} 🚨🚨🚨", instrument.id, instrument.ticker, kind, horizon_days);
+        info!(
+            "generate_insight called: instrument_id={}, ticker={}, kind={}, horizon_days={}",
+            instrument.id, instrument.ticker, kind, horizon_days
+        );
+        
         let system = match kind {
             "overview" => "You are a financial research assistant. Produce a concise overview of the instrument, including what it is, key characteristics, and why it might be interesting to an event-driven trader.",
-            "recent" => "You are a financial research assistant. Summarize the most important recent developments, news, and catalysts for this instrument over the requested horizon.",
+            "recent" => "You are a financial research assistant. Your task is to summarize recent developments for this instrument. CRITICAL: If recent news articles are provided in the user's message, you MUST use those articles as the PRIMARY source for your summary. Reference specific headlines, dates, and key details from the provided news articles. Do not make up or reference information that is not in the provided news articles.",
             _ => "You are a financial research assistant. Provide concise, relevant information about the instrument.",
         };
 
-        let prompt = format!(
-            "Instrument: {name} ({ticker})\n\
-             Asset class: {asset_class}\n\
-             Exchange: {exchange}\n\
-             Region: {region:?}\n\
-             Country: {country:?}\n\
-             Horizon: last {horizon_days} days.\n\n\
-             Write a short, focused {kind} insight, suitable for a dashboard. \
-             Use markdown, keep it under ~300 words, and avoid fluff.",
-            name = instrument.name,
-            ticker = instrument.ticker,
-            asset_class = instrument.asset_class,
-            exchange = instrument
-                .exchange
-                .clone()
-                .unwrap_or_else(|| "UNKNOWN".to_string()),
-            region = instrument.region,
-            country = instrument.country_code,
+        // Fetch recent news articles for this instrument
+        info!(
+            "🔍 Fetching news for instrument_id={}, horizon_days={}, db_pool={:p}",
+            instrument.id, horizon_days, db_pool as *const _
         );
+        let news_query_result = sqlx::query_as::<_, NewsArticleDto>(
+            r#"
+            SELECT
+                id,
+                source,
+                publisher,
+                headline,
+                summary,
+                url,
+                published_at
+            FROM news_articles
+            WHERE instrument_id = $1
+              AND published_at >= NOW() - INTERVAL '1 day' * $2
+            ORDER BY published_at DESC
+            LIMIT 10
+            "#,
+        )
+        .bind(instrument.id)
+        .bind(horizon_days);
+        
+        eprintln!("🚨🚨🚨 EXECUTING NEWS QUERY: instrument_id={}, horizon_days={} 🚨🚨🚨", instrument.id, horizon_days);
+        info!("🔍 Executing news query with instrument_id={}, horizon_days={}", instrument.id, horizon_days);
+        let news_context = match news_query_result
+        .fetch_all(db_pool)
+        .await
+        {
+            Ok(articles) if !articles.is_empty() => {
+                eprintln!("🚨🚨🚨 FOUND {} NEWS ARTICLES for instrument_id={} 🚨🚨🚨", articles.len(), instrument.id);
+                info!(
+                    "Found {} news articles for instrument_id={}, kind={}",
+                    articles.len(),
+                    instrument.id,
+                    kind
+                );
+                let mut news_text = String::from("\n\n=== RECENT NEWS ARTICLES (USE THESE AS YOUR PRIMARY SOURCE) ===\n");
+                for (idx, article) in articles.iter().take(5).enumerate() {
+                    news_text.push_str(&format!(
+                        "\n**Article {}: {}**\nPublished by: {}\nSummary: {}\n",
+                        idx + 1,
+                        article.headline,
+                        article
+                            .publisher
+                            .as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or("Unknown"),
+                        article
+                            .summary
+                            .as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or("No summary")
+                    ));
+                }
+                news_text.push_str("\n=== END OF NEWS ARTICLES ===\n");
+                news_text.push_str("\nINSTRUCTIONS: Base your recent insights summary primarily on the news articles above. Reference specific headlines, dates, and developments from these articles. Do not include information that is not mentioned in these articles.\n");
+                news_text
+            }
+            Ok(_) => {
+                info!(
+                    "No news articles found for instrument_id={}, kind={}",
+                    instrument.id, kind
+                );
+                String::new()
+            }
+            Err(e) => {
+                error!(
+                    "Failed to fetch news for instrument_id={}, kind={}: {}",
+                    instrument.id, kind, e
+                );
+                String::new()
+            }
+        };
+
+        eprintln!("🚨🚨🚨 NEWS CONTEXT: length={}, is_empty={} 🚨🚨🚨", news_context.len(), news_context.is_empty());
+        if !news_context.is_empty() {
+            eprintln!("🚨🚨🚨 NEWS CONTEXT PREVIEW (first 500 chars): {} 🚨🚨🚨", &news_context[..news_context.len().min(500)]);
+        } else {
+            eprintln!("🚨🚨🚨 WARNING: NEWS CONTEXT IS EMPTY! 🚨🚨🚨");
+        }
+        info!(
+            "News context length: {} chars, is_empty: {}",
+            news_context.len(),
+            news_context.is_empty()
+        );
+        if !news_context.is_empty() {
+            info!("News context preview: {}", &news_context[..news_context.len().min(200)]);
+        }
+        
+        let prompt = if !news_context.is_empty() {
+            format!(
+                "Instrument: {name} ({ticker})\n\
+                 Asset class: {asset_class}\n\
+                 Exchange: {exchange}\n\
+                 Region: {region:?}\n\
+                 Country: {country:?}\n\
+                 Horizon: last {horizon_days} days\n\
+                 {news_context}\n\n\
+                 TASK: Write a short, focused recent insights summary based on the news articles provided above. \
+                 Use markdown, keep it under ~300 words. \
+                 IMPORTANT: Your summary must be based primarily on the news articles provided. Reference specific headlines and key developments from those articles.",
+                name = instrument.name,
+                ticker = instrument.ticker,
+                asset_class = instrument.asset_class,
+                exchange = instrument
+                    .exchange
+                    .clone()
+                    .unwrap_or_else(|| "UNKNOWN".to_string()),
+                region = instrument.region,
+                country = instrument.country_code,
+                news_context = news_context,
+            )
+        } else {
+            format!(
+                "Instrument: {name} ({ticker})\n\
+                 Asset class: {asset_class}\n\
+                 Exchange: {exchange}\n\
+                 Region: {region:?}\n\
+                 Country: {country:?}\n\
+                 Horizon: last {horizon_days} days\n\n\
+                 Write a short, focused {kind} insight, suitable for a dashboard. \
+                 Use markdown, keep it under ~300 words, and avoid fluff.",
+                name = instrument.name,
+                ticker = instrument.ticker,
+                asset_class = instrument.asset_class,
+                exchange = instrument
+                    .exchange
+                    .clone()
+                    .unwrap_or_else(|| "UNKNOWN".to_string()),
+                region = instrument.region,
+                country = instrument.country_code,
+                kind = kind,
+            )
+        };
 
         let body = json!({
             "model": self.model,
@@ -620,11 +745,23 @@ async fn get_instrument_insight_handler(
     };
 
     // Call LLM
+    eprintln!("🚨🚨🚨 ABOUT TO CALL generate_insight: instrument_id={}, kind={}, horizon_days={} 🚨🚨🚨", instrument.id, kind, horizon_days);
+    info!(
+        "About to call generate_insight for instrument_id={}, kind={}, horizon_days={}",
+        instrument.id, kind, horizon_days
+    );
     let text = match chat_client
-        .generate_insight(&instrument, &kind, horizon_days)
+        .generate_insight(&instrument, &kind, horizon_days, &state.db_pool)
         .await
     {
-        Ok(t) => t,
+        Ok(t) => {
+            eprintln!("🚨🚨🚨 generate_insight COMPLETED: instrument_id={}, response_length={} 🚨🚨🚨", instrument.id, t.len());
+            info!(
+                "generate_insight completed successfully for instrument_id={}, kind={}, response_length={}",
+                instrument.id, kind, t.len()
+            );
+            t
+        }
         Err(err) => {
             error!(
                 "LLM generation failed for instrument_id={id}, kind={kind}: {err}"

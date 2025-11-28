@@ -29,14 +29,23 @@ SAMPLE_TICKERS_SHORT_KIND = os.getenv("SAMPLE_TICKERS_SHORT_KIND", "overview")
 SAMPLE_TICKERS_RECENT_KIND = os.getenv("SAMPLE_TICKERS_RECENT_KIND", "recent")
 
 # Where to write the JSON file
-# Default: apps/web/data/sample_tickers.json (relative to this file)
-DEFAULT_OUTPUT_PATH = (
+# Inside Docker, the web app's data directory is mounted at /export/web-data
+# Default: /export/web-data/sample_tickers.json (Docker volume mount)
+# Fallback: apps/web/data/sample_tickers.json (relative to this file, for local dev)
+DOCKER_OUTPUT_PATH = Path("/export/web-data/sample_tickers.json")
+LOCAL_OUTPUT_PATH = (
     Path(__file__).resolve().parents[2]  # .../apps
     / "web"
     / "data"
     / "sample_tickers.json"
 )
-OUTPUT_PATH = Path(os.getenv("SAMPLE_TICKERS_OUTPUT_PATH", str(DEFAULT_OUTPUT_PATH)))
+# Always use Docker path in Docker (check if /export exists), otherwise use local path
+if os.getenv("SAMPLE_TICKERS_OUTPUT_PATH"):
+    OUTPUT_PATH = Path(os.getenv("SAMPLE_TICKERS_OUTPUT_PATH"))
+elif Path("/export").exists():
+    OUTPUT_PATH = DOCKER_OUTPUT_PATH
+else:
+    OUTPUT_PATH = LOCAL_OUTPUT_PATH
 
 logging.basicConfig(
     level=logging.INFO,

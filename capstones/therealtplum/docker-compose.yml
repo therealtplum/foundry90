@@ -41,7 +41,7 @@ services:
 
       # LLM insights
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: gpt-4.1-mini
+      OPENAI_MODEL: gpt-4o-mini
 
       # System-health → frontend health check
       FRONTEND_HEALTH_URL_LOCAL: "http://fmhub_web:3000/api/version"
@@ -75,6 +75,7 @@ services:
       PRICE_PREV_MAX_INSTRUMENTS: ${PRICE_PREV_MAX_INSTRUMENTS:-2000}
       PRICE_PREV_SLEEP_SECS: ${PRICE_PREV_SLEEP_SECS:-0.02}
       PRICE_PREV_BATCH_SIZE: ${PRICE_PREV_BATCH_SIZE:-500}
+      SAMPLE_TICKERS_OUTPUT_PATH: /export/web-data/sample_tickers.json
     volumes:
       - ./apps/web/data:/export/web-data
     # Do nothing by default; we trigger jobs with `docker compose run --rm etl ...`
