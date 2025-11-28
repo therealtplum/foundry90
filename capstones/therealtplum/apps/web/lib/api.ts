@@ -35,7 +35,8 @@ export interface FocusTickerStripItem {
   name: string;
   asset_class: string;
   last_close_price: string | null;
-  prior_day_last_close_price?: string | null; // NEW
+  prior_day_last_close_price?: string | null;
+  day_over_day_change_percent?: number | null; // Native Polygon percentage change
   short_insight?: string | null;
   recent_insight?: string | null;
 }

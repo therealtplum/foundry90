@@ -55,6 +55,19 @@ type ChangeDirection = "up" | "down" | "flat";
 function computeChange(
   item: FocusTickerWithInsights,
 ): { direction: ChangeDirection; pctStr: string } | null {
+  // First, try to use Polygon's native day_over_day_change_percent if available
+  const nativeChangePerc = (item as any).day_over_day_change_percent;
+  if (nativeChangePerc !== null && nativeChangePerc !== undefined) {
+    const pct = typeof nativeChangePerc === "number" ? nativeChangePerc : parseFloat(String(nativeChangePerc));
+    if (isFinite(pct)) {
+      const direction: ChangeDirection =
+        pct > 0.0001 ? "up" : pct < -0.0001 ? "down" : "flat";
+      const pctStr = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+      return { direction, pctStr };
+    }
+  }
+
+  // Fall back to manual calculation if native field is not available
   const last = item.last_close_price
     ? parseFloat(String(item.last_close_price))
     : NaN;
