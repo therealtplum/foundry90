@@ -9,6 +9,8 @@
 import SwiftUI
 
 struct RootView: View {
+    @StateObject private var themeManager = ThemeManager()
+    
     var body: some View {
         TabView {
             SystemHealthView()
@@ -27,5 +29,7 @@ struct RootView: View {
                 }
         }
         .frame(minWidth: 900, minHeight: 600)
+        .environmentObject(themeManager)
+        .preferredColorScheme(themeManager.currentTheme == .hacker ? .dark : .light)
     }
 }

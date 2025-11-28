@@ -10,15 +10,12 @@ import SwiftUI
 struct OperationsView: View {
     @StateObject private var viewModel = OperationsViewModel()
     @StateObject private var healthViewModel = SystemHealthViewModel()
+    @EnvironmentObject var themeManager: ThemeManager
 
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [Color.black, Color(red: 0.03, green: 0.05, blue: 0.1)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+            themeManager.backgroundGradient
+                .ignoresSafeArea()
 
             VStack(spacing: 16) {
                 headerRow
@@ -29,7 +26,7 @@ struct OperationsView: View {
             }
             .padding(24)
         }
-        .foregroundColor(.white)
+        .foregroundColor(themeManager.textColor)
         .task {
             await healthViewModel.refresh()
         }
@@ -42,10 +39,11 @@ struct OperationsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Operations")
                     .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .foregroundColor(themeManager.textColor)
 
                 Text("FMHub local stack · runbooks + status")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.6))
+                    .foregroundColor(themeManager.textSoftColor)
             }
 
             Spacer()
@@ -60,10 +58,10 @@ struct OperationsView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.05))
+            .background(themeManager.panelBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                    .stroke(themeManager.panelBorder, lineWidth: 1)
             )
             .cornerRadius(14)
 
@@ -72,8 +70,7 @@ struct OperationsView: View {
             } label: {
                 HStack(spacing: 6) {
                     if healthViewModel.isLoading {
-                        ProgressView()
-                            .controlSize(.small)
+                        BlackProgressView()
                     } else {
                         Image(systemName: "arrow.clockwise")
                     }
@@ -82,7 +79,7 @@ struct OperationsView: View {
                 .padding(.vertical, 6)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.white.opacity(0.15))
+            .tint(themeManager.accentColor)
         }
     }
 
@@ -92,12 +89,13 @@ struct OperationsView: View {
 
         return HStack(spacing: 4) {
             Circle()
-                .fill(isUp ? Color.green : Color.red)
+                .fill(isUp ? themeManager.statusUpColor : themeManager.statusDownColor)
                 .frame(width: 8, height: 8)
+                .shadow(color: isUp ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 3)
 
             Text(label)
                 .font(.caption2)
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(themeManager.textColor)
         }
     }
 
@@ -107,27 +105,28 @@ struct OperationsView: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Runbooks")
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundColor(themeManager.textColor)
 
             Text("Start/stop the stack, run ETL, and rebuild the web image with the current commit.")
                 .font(.subheadline)
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(themeManager.textSoftColor)
 
             VStack(alignment: .leading, spacing: 12) {
                 opButton(.startStack, systemImage: "play.fill")
                 opButton(.stopStack, systemImage: "stop.fill")
 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(themeManager.panelBorder)
 
                 opButton(.runFullEtl, systemImage: "bolt.fill")
                 opButton(.exportSampleTickers, systemImage: "doc.text.fill")
                 opButton(.rebuildWebWithGit, systemImage: "arrow.triangle.2.circlepath")
                 
-                Divider().background(Color.white.opacity(0.1))
+                Divider().background(themeManager.panelBorder)
                 
                 opButton(.runRegression, systemImage: "checkmark.seal.fill")
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().background(themeManager.panelBorder)
 
             Button(role: .destructive) {
                 viewModel.run(.panic)
@@ -145,18 +144,39 @@ struct OperationsView: View {
                 .padding(10)
             }
             .buttonStyle(.borderedProminent)
-            .tint(.red)
+            .tint(.red) // Always red regardless of theme
             .disabled(viewModel.isRunning)
+
+            Divider().background(themeManager.panelBorder)
+
+            // Theme toggle at bottom of runbooks panel
+            Button {
+                themeManager.toggleTheme()
+            } label: {
+                HStack {
+                    Image(systemName: themeManager.currentTheme == .hacker ? "sparkles" : "terminal")
+                    Text("Switch to \(themeManager.currentTheme == .hacker ? "Kawaii" : "Hacker") Theme")
+                        .fontWeight(.medium)
+                    Spacer()
+                }
+                .padding(10)
+            }
+            .buttonStyle(.bordered)
+            .tint(themeManager.accentColor.opacity(0.2))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(themeManager.accentColor.opacity(0.3), lineWidth: 1)
+            )
 
             Spacer()
         }
         .padding(16)
         .frame(width: 260, alignment: .topLeading)
         .frame(maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.white.opacity(0.03))
+        .background(themeManager.panelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                .stroke(themeManager.panelBorder, lineWidth: 1)
         )
         .cornerRadius(20)
     }
@@ -177,6 +197,7 @@ struct OperationsView: View {
             .padding(10)
         }
         .buttonStyle(.borderedProminent)
+        .tint(themeManager.accentColor)
         .disabled(viewModel.isRunning)
     }
 
@@ -186,18 +207,20 @@ struct OperationsView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Operation Log")
                 .font(.headline)
+                .foregroundColor(themeManager.textColor)
 
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.black.opacity(0.7))
+                    .fill(themeManager.panelBackground.opacity(0.8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.white.opacity(0.05), lineWidth: 1)
+                            .stroke(themeManager.panelBorder, lineWidth: 1)
                     )
 
                 ScrollView {
                     Text(viewModel.logText.isEmpty ? "No operations run yet." : viewModel.logText)
                         .font(.system(.footnote, design: .monospaced))
+                        .foregroundColor(themeManager.textColor)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .topLeading)
                         .textSelection(.enabled)
@@ -205,10 +228,10 @@ struct OperationsView: View {
             }
         }
         .padding(16)
-        .background(Color.white.opacity(0.02))
+        .background(themeManager.panelBackground)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
-                .stroke(Color.white.opacity(0.04), lineWidth: 1)
+                .stroke(themeManager.panelBorder, lineWidth: 1)
         )
         .cornerRadius(20)
     }
