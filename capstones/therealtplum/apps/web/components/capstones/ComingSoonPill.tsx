@@ -31,9 +31,24 @@ export default function ComingSoonPill() {
         body: JSON.stringify({ email }),
       });
 
+      if (!response.ok) {
+        // Try to parse error response
+        let errorMessage = "Something went wrong. Please try again.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          // If JSON parsing fails, use status text
+          errorMessage = `Error: ${response.status} ${response.statusText}`;
+        }
+        setState("error");
+        setMessage(errorMessage);
+        return;
+      }
+
       const data = await response.json();
 
-      if (response.ok) {
+      if (data.success) {
         setState("success");
         setMessage(data.message || "Thanks! We'll notify you when the project launches.");
         setEmail("");
@@ -41,9 +56,12 @@ export default function ComingSoonPill() {
         setState("error");
         setMessage(data.error || "Something went wrong. Please try again.");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Submission error:", error);
       setState("error");
-      setMessage("Network error. Please check your connection and try again.");
+      setMessage(
+        error.message || "Network error. Please check your connection and try again."
+      );
     }
   };
 
@@ -89,4 +107,5 @@ export default function ComingSoonPill() {
     </div>
   );
 }
+
 

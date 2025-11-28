@@ -132,6 +132,18 @@ async function insertEmail(
 }
 
 export async function POST(request: NextRequest) {
+  // Check if DATABASE_URL is configured
+  if (!process.env.DATABASE_URL && process.env.NODE_ENV === "production") {
+    console.error("DATABASE_URL is not configured in production environment");
+    return NextResponse.json(
+      { 
+        error: "Server configuration error. Please contact support.",
+        details: "Database connection not configured"
+      },
+      { status: 500 }
+    );
+  }
+
   try {
     const body = await request.json();
     const { email } = body;
@@ -206,10 +218,18 @@ export async function POST(request: NextRequest) {
     }
   } catch (error: any) {
     console.error("Email notification submission error:", error);
+    console.error("Error stack:", error?.stack);
+    console.error("Error message:", error?.message);
     return NextResponse.json(
-      { error: "An error occurred. Please try again later." },
+      { 
+        error: "An error occurred. Please try again later.",
+        // Include error details in development
+        ...(process.env.NODE_ENV === "development" && { 
+          details: error?.message,
+          stack: error?.stack 
+        })
+      },
       { status: 500 }
     );
   }
 }
-
