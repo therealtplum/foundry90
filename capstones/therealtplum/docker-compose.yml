@@ -70,8 +70,11 @@ services:
     environment:
       DATABASE_URL: postgres://app:app@db:5432/fmhub
       POLYGON_API_KEY: ${POLYGON_API_KEY}
+      PRICE_PREV_MAX_INSTRUMENTS: ${PRICE_PREV_MAX_INSTRUMENTS:-2000}
+      PRICE_PREV_SLEEP_SECS: ${PRICE_PREV_SLEEP_SECS:-0.02}
+      PRICE_PREV_BATCH_SIZE: ${PRICE_PREV_BATCH_SIZE:-500}
     volumes:
-     - ./apps/web/data:/export/web-data
+      - ./apps/web/data:/export/web-data
     # Do nothing by default; we trigger jobs with `docker compose run --rm etl ...`
     command: ["sleep", "infinity"]
 

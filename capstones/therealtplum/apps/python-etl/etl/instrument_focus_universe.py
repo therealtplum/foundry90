@@ -1,523 +1,169 @@
-# apps/python-etl/etl/instrument_focus_universe.py
-"""
-Build and persist the daily FMHub instrument focus universe.
-
-Strategy (per as_of_date):
-  1. Pull Polygon snapshots for US stocks and global crypto.
-  2. Compute simple activity metrics (dollar_volume, volume, asset_class),
-     using either today's session or the previous trading day if today is
-     a holiday/weekend.
-  3. Map Polygon tickers to fmhub.instruments (status = 'active'),
-     filtering out OTC/grey/unsupported asset classes.
-  4. Apply simple liquidity filters and rank globally and by asset_class.
-  5. Select a focus universe:
-       - top N globally
-       - plus a minimum per asset_class (equity/etf/crypto).
-  6. For each focus instrument, fetch previous close price from Polygon
-     and upsert into instrument_focus_universe.
-"""
-
 import os
-import sys
-import time
 import logging
-from datetime import date
-from typing import Dict, Any, List, Optional
-
 import psycopg2
-import psycopg2.extras
-import requests
-
-POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
-if not POLYGON_API_KEY:
-    raise RuntimeError("POLYGON_API_KEY environment variable is required for instrument_focus_universe ETL")
+from psycopg2.extras import execute_values
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://app:app@db:5432/fmhub")
 
 logging.basicConfig(
     level=logging.INFO,
-    format="[instrument_focus] %(message)s",
-    stream=sys.stdout,
+    format="[instrument_focus_universe] %(message)s",
 )
 log = logging.getLogger(__name__)
 
-STOCK_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers"
-CRYPTO_SNAPSHOT_URL = "https://api.polygon.io/v2/snapshot/locale/global/markets/crypto/tickers"
-PREV_CLOSE_URL_TEMPLATE = "https://api.polygon.io/v2/aggs/ticker/{ticker}/prev"
 
-# -------------------------------------------------------------------
-# Liquidity / selection defaults
-# -------------------------------------------------------------------
+TOP_N_GLOBAL = int(os.getenv("FOCUS_UNIVERSE_TOP_N", "500"))
 
-# These are intentionally modest so we don't end up with an empty universe,
-# but they still knock out truly dead/ghost tickers.
-MIN_DOLLAR_VOLUME_USD = float(os.getenv("FOCUS_MIN_DOLLAR_VOLUME_USD", "0"))
-MIN_VOLUME_SHARES = float(os.getenv("FOCUS_MIN_VOLUME_SHARES", "0"))
-
-# -------------------------------------------------------------------
-# DB helpers
-# -------------------------------------------------------------------
 
 def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
 
-# -------------------------------------------------------------------
-# Polygon helpers
-# -------------------------------------------------------------------
-
-# TODO: consider moving Polygon HTTP helpers into a shared client module
-#       so we centralize auth, logging, and backoff behavior.
-
-def fetch_polygon_snapshot(url: str) -> List[Dict[str, Any]]:
+def get_latest_price_date(cur) -> str | None:
     """
-    Fetch a snapshot from Polygon (stocks or crypto).
-
-    Returns a list of ticker payloads (or empty list on 403/timeout).
+    Find the most recent price_date in instrument_price_daily.
+    Returns a date string (YYYY-MM-DD) or None if table is empty.
     """
-    params = {"apiKey": POLYGON_API_KEY}
-    log.info(f"Fetching snapshot: {url}")
-    try:
-        resp = requests.get(url, params=params, timeout=30)
-    except requests.exceptions.RequestException as e:
-        log.warning(f"Error fetching snapshot from {url}: {e} – returning empty list.")
-        return []
-
-    if resp.status_code == 403:
-        log.warning(f"403 Forbidden from Polygon for {url} – skipping this snapshot.")
-        return []
-
-    try:
-        resp.raise_for_status()
-    except Exception as e:
-        log.warning(f"Non-200 from Polygon for {url}: {e} – returning empty list.")
-        return []
-
-    data = resp.json()
-    return data.get("tickers", []) or []
+    cur.execute("SELECT MAX(price_date) FROM instrument_price_daily;")
+    row = cur.fetchone()
+    return row[0] if row and row[0] is not None else None
 
 
-def compute_activity_for_ticker(t: Dict[str, Any], asset_class: str) -> Dict[str, Any]:
+def compute_focus_universe(cur, as_of_date: str):
     """
-    Given a Polygon snapshot ticker payload, compute simple activity metrics.
+    For a given as_of_date (matching price_date), compute the focus universe
+    using instruments_useq as the base universe.
 
-    On normal trading days:
-        - Use today's session (day.c, day.v).
-
-    On holidays/weekends / zero-activity days:
-        - Fall back to prevDay.c, prevDay.v so we still get real liquidity.
-
-    As a last resort:
-        - Use lastTrade.p / lastTrade.s if present.
+    - dollar_volume = close * volume
+    - activity_rank_global: rank by dollar_volume desc
+    - activity_rank_asset_class: rank by dollar_volume desc within asset_class
     """
-    last_trade = t.get("lastTrade") or {}
-    day = t.get("day") or {}
-    prev_day = t.get("prevDay") or {}
+    log.info(f"Computing focus universe for as_of_date={as_of_date} (TOP_N_GLOBAL={TOP_N_GLOBAL})")
 
-    # Start with today's session
-    close = day.get("c")
-    volume = day.get("v")
-
-    # If today is "dead" (holiday/weekend / no trading),
-    # fall back to previous trading day.
-    if (close is None or close == 0) and (volume is None or volume == 0):
-        close = prev_day.get("c", close)
-        volume = prev_day.get("v", volume)
-
-    # Final fallback: last trade snapshot
-    if close is None or close == 0:
-        close = last_trade.get("p", close)
-    if volume is None or volume == 0:
-        volume = last_trade.get("s", volume)
-
-    try:
-        close = float(close) if close is not None else None
-    except (TypeError, ValueError):
-        close = None
-
-    try:
-        volume = float(volume) if volume is not None else 0.0
-    except (TypeError, ValueError):
-        volume = 0.0
-
-    dollar_volume = (close or 0.0) * volume
-
-    return {
-        "asset_class": asset_class,
-        "dollar_volume": dollar_volume,
-        "volume": volume,
-    }
-
-
-def build_activity_from_snapshots() -> Dict[str, Dict[str, Any]]:
-    """
-    Build a map of ticker -> activity metrics from Polygon snapshots
-    for US stocks and global crypto.
-    """
-    activity: Dict[str, Dict[str, Any]] = {}
-
-    # Stocks snapshot
-    stock_tickers = fetch_polygon_snapshot(STOCK_SNAPSHOT_URL)
-    for t in stock_tickers:
-        ticker = t.get("ticker")
-        if not ticker:
-            continue
-        metrics = compute_activity_for_ticker(t, asset_class="equity")
-        activity[ticker] = metrics
-
-    # Crypto snapshot (best-effort; may be forbidden on your plan)
-    crypto_tickers = fetch_polygon_snapshot(CRYPTO_SNAPSHOT_URL)
-    for t in crypto_tickers:
-        ticker = t.get("ticker")
-        if not ticker:
-            continue
-        metrics = compute_activity_for_ticker(t, asset_class="crypto")
-
-        # If ticker overlaps with equity universe, keep whichever has higher dollar_volume.
-        existing = activity.get(ticker)
-        if existing is None or metrics["dollar_volume"] > existing["dollar_volume"]:
-            activity[ticker] = metrics
-
-    log.info(f"Built activity metrics for {len(activity)} tickers")
-    return activity
-
-
-def fetch_prev_close_price(ticker: str) -> Optional[float]:
-    """
-    Fetch previous close price for a ticker from Polygon.
-
-    Uses:
-        GET /v2/aggs/ticker/{ticker}/prev?adjusted=true&apiKey=...
-
-    Returns:
-        float close price, or None if not available / error.
-    """
-    url = PREV_CLOSE_URL_TEMPLATE.format(ticker=ticker)
-    params = {"adjusted": "true", "apiKey": POLYGON_API_KEY}
-
-    try:
-        resp = requests.get(url, params=params, timeout=10)
-        if resp.status_code == 403:
-            log.warning(f"403 Forbidden for prev close {ticker} – skipping price.")
-            return None
-        if resp.status_code == 429:
-            # crude backoff once
-            log.warning(f"429 Too Many Requests for {ticker}, sleeping 1s…")
-            time.sleep(1)
-            resp = requests.get(url, params=params, timeout=10)
-
-        resp.raise_for_status()
-        data = resp.json()
-        results = data.get("results") or []
-        if not results:
-            return None
-        close = results[0].get("c")
-        if close is None:
-            return None
-        return float(close)
-    except Exception as e:
-        log.warning(f"Failed to fetch prev close for {ticker}: {e}")
-        return None
-
-
-# -------------------------------------------------------------------
-# Focus universe builder
-# -------------------------------------------------------------------
-
-# TODO: if this ever gets too slow or hits Polygon rate limits,
-#       consider:
-#         - caching prev-close data,
-#         - or persisting full OHLCV time series in another ETL,
-#         - or skipping prev-close on non-critical instruments.
-
-def build_focus_universe(
-    conn,
-    as_of: Optional[date] = None,
-    global_top_n: int = 500,
-    min_by_asset: Optional[Dict[str, int]] = None,
-) -> None:
-    """
-    Build the instrument_focus_universe table for a given as_of date.
-
-    Strategy:
-      1. Build Polygon activity metrics (dollar_volume, volume, asset_class).
-      2. Map tickers to fmhub instruments, filtering out OTC/grey and
-         unsupported asset classes.
-      3. Apply simple liquidity filters.
-      4. Compute global + per-asset-class ranks.
-      5. Select global_top_n overall, and ensure at least min_by_asset per class.
-      6. For those focus instruments, fetch prev close price from Polygon
-         and upsert into instrument_focus_universe with last_close_price.
-    """
-    if as_of is None:
-        as_of = date.today()
-
-    if min_by_asset is None:
-        min_by_asset = {
-            "equity": 200,
-            "etf": 100,
-            "crypto": 100,
-        }
-
-    log.info(f"Building activity metrics from Polygon snapshots for as_of={as_of}…")
-    activity = build_activity_from_snapshots()
-
-    # 2. Map tickers to instruments in DB, with coarse filters
-    ticker_list = list(activity.keys())
-    if not ticker_list:
-        log.warning("No activity metrics to process. Exiting.")
-        return
-
-    with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute(
-            """
+    # Use a CTE with window functions to compute ranks in the DB
+    cur.execute(
+        """
+        WITH base AS (
             SELECT
-                id,
-                ticker,
-                asset_class::text AS asset_class,
-                exchange
-            FROM instruments
-            WHERE ticker = ANY(%s)
-              AND status = 'active'
-              AND asset_class IN ('equity', 'etf', 'crypto')
-              AND (exchange IS NULL OR exchange NOT ILIKE 'OTC%%')
-              AND (exchange IS NULL OR exchange NOT ILIKE 'GREY%%')
-            """,
-            (ticker_list,),
+                i.id AS instrument_id,
+                i.asset_class,
+                p.close AS last_close_price,
+                COALESCE(p.volume, 0) AS volume,
+                (p.close * COALESCE(p.volume, 0))::NUMERIC(30, 4) AS dollar_volume
+            FROM instrument_price_daily p
+            JOIN instruments_useq i
+              ON i.id = p.instrument_id
+            WHERE p.price_date = %s
+        ),
+        ranked AS (
+            SELECT
+                instrument_id,
+                asset_class,
+                last_close_price,
+                volume,
+                dollar_volume,
+                RANK() OVER (ORDER BY dollar_volume DESC) AS activity_rank_global,
+                RANK() OVER (PARTITION BY asset_class ORDER BY dollar_volume DESC) AS activity_rank_asset_class
+            FROM base
         )
-        rows = cur.fetchall()
+        SELECT
+            instrument_id,
+            asset_class,
+            last_close_price,
+            volume,
+            dollar_volume,
+            activity_rank_global,
+            activity_rank_asset_class
+        FROM ranked
+        WHERE activity_rank_global <= %s
+        ORDER BY activity_rank_global ASC;
+        """,
+        (as_of_date, TOP_N_GLOBAL),
+    )
 
-    by_ticker: Dict[str, Dict[str, Any]] = {}
-    for row in rows:
-        by_ticker[row["ticker"]] = {
-            "instrument_id": row["id"],
-            "asset_class": row["asset_class"],
-            "exchange": row["exchange"],
-        }
+    rows = cur.fetchall()
+    log.info(f"Computed {len(rows)} focus instruments for {as_of_date}")
+    return rows
 
-    log.info(f"Matched {len(by_ticker)} instruments from DB after filters")
 
-    # 3. Build list of candidates with activity + instrument mapping
-    candidates: List[Dict[str, Any]] = []
-    for ticker, metrics in activity.items():
-        info = by_ticker.get(ticker)
-        if not info:
-            continue
+def replace_focus_universe_for_date(cur, as_of_date: str, rows: list[tuple]):
+    """
+    Replace all rows in instrument_focus_universe for the given as_of_date
+    with the provided dataset.
+    """
+    log.info(f"Deleting existing focus universe rows for as_of_date={as_of_date}")
+    cur.execute(
+        "DELETE FROM instrument_focus_universe WHERE as_of_date = %s;",
+        (as_of_date,),
+    )
 
-        asset_class = info["asset_class"] or metrics["asset_class"]
-        dollar_volume = metrics["dollar_volume"]
-        volume = metrics["volume"]
-
-        # Simple liquidity filter: skip zero or negative
-        if dollar_volume is None or dollar_volume <= MIN_DOLLAR_VOLUME_USD:
-            continue
-        if volume is None or volume <= MIN_VOLUME_SHARES:
-            continue
-
-        candidates.append(
-            {
-                "ticker": ticker,
-                "instrument_id": info["instrument_id"],
-                "asset_class": asset_class,
-                "dollar_volume": dollar_volume,
-                "volume": volume,
-            }
-        )
-
-    if not candidates:
-        log.warning("No candidates after mapping activity to instruments and liquidity filters.")
+    if not rows:
+        log.info("No rows to insert after delete; focus universe will be empty for this date.")
         return
 
-    # 4. Global ranking by dollar_volume desc
-    candidates.sort(key=lambda c: c["dollar_volume"], reverse=True)
-    for idx, c in enumerate(candidates, start=1):
-        c["rank_global"] = idx
-
-    # 5. Per-asset-class ranking
-    per_asset: Dict[str, List[Dict[str, Any]]] = {}
-    for c in candidates:
-        per_asset.setdefault(c["asset_class"], []).append(c)
-
-    for asset_class, items in per_asset.items():
-        items.sort(key=lambda c: c["dollar_volume"], reverse=True)
-        for idx, c in enumerate(items, start=1):
-            c["rank_asset_class"] = idx
-
-    # 6. Select focus universe: global top + min per asset class
-    focus: Dict[int, Dict[str, Any]] = {}
-
-    # global top N
-    for c in candidates[:global_top_n]:
-        focus[c["instrument_id"]] = c
-
-    # min per asset class
-    for asset_class, min_n in min_by_asset.items():
-        items = per_asset.get(asset_class, [])
-        for c in items[:min_n]:
-            focus[c["instrument_id"]] = c
-
-        focus_list = list(focus.values())
-    log.info(
-        f"Focus universe for {as_of}: {len(focus_list)} instruments "
-        f"(global top {global_top_n} + per-asset mins {min_by_asset})"
-    )
-
-    if not focus_list:
-        log.warning(f"No focus instruments computed for {as_of}; skipping upsert.")
-        return
-
-    # 7. Upsert into instrument_focus_universe with last_close_price
-    success_prices = 0
-    total = len(focus_list)
-
-    with conn.cursor() as cur:
-        # Ensure this run is authoritative for this as_of_date.
-        # We want the table for a given date to reflect exactly this focus universe,
-        # not a union of older runs + new logic.
-        cur.execute(
-            """
-            DELETE FROM instrument_focus_universe
-            WHERE as_of_date = %s
-            """,
-            (as_of,),
+    # Prepare rows for bulk insert
+    payload = [
+        (
+            as_of_date,                 # as_of_date
+            r[0],                       # instrument_id
+            r[1],                       # asset_class
+            r[4],                       # dollar_volume
+            r[3],                       # volume
+            r[5],                       # activity_rank_global
+            r[6],                       # activity_rank_asset_class
+            r[2],                       # last_close_price
         )
-        log.info(
-            f"Cleared existing focus snapshot for {as_of} "
-            f"before inserting {total} instruments."
+        for r in rows
+    ]
+
+    log.info(f"Inserting {len(payload)} rows into instrument_focus_universe for {as_of_date}")
+
+    execute_values(
+        cur,
+        """
+        INSERT INTO instrument_focus_universe (
+            as_of_date,
+            instrument_id,
+            asset_class,
+            dollar_volume,
+            volume,
+            activity_rank_global,
+            activity_rank_asset_class,
+            last_close_price
         )
-
-        for idx, c in enumerate(focus_list, start=1):
-            ticker = c["ticker"]
-            instrument_id = c["instrument_id"]
-            asset_class = c["asset_class"]
-            dollar_volume = c["dollar_volume"]
-            volume = c["volume"]
-            rank_global = c["rank_global"]
-            rank_asset = c["rank_asset_class"]
-
-            last_close_price = fetch_prev_close_price(ticker)
-            if last_close_price is not None:
-                success_prices += 1
-
-            if idx <= 10:
-                # Only spam log for first few
-                log.info(
-                    f"[{idx}/{total}] {ticker} "
-                    f"id={instrument_id} dv={dollar_volume:.0f} "
-                    f"vol={volume:.0f} last_close={last_close_price}"
-                )
-
-            cur.execute(
-                """
-                INSERT INTO instrument_focus_universe (
-                    as_of_date,
-                    instrument_id,
-                    asset_class,
-                    dollar_volume,
-                    volume,
-                    activity_rank_global,
-                    activity_rank_asset_class,
-                    last_close_price
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                """,
-                (
-                    as_of,
-                    instrument_id,
-                    asset_class,
-                    dollar_volume,
-                    volume,
-                    rank_global,
-                    rank_asset,
-                    last_close_price,
-                ),
-            )
-
-        conn.commit()
-
-    log.info(
-        f"Finished upserting focus universe for {as_of}: "
-        f"{total} rows, {success_prices} with last_close_price populated."
+        VALUES %s
+        """,
+        payload,
     )
 
-    # 7. Upsert into instrument_focus_universe with last_close_price
-    success_prices = 0
-    total = len(focus_list)
-
-    with conn.cursor() as cur:
-        for idx, c in enumerate(focus_list, start=1):
-            ticker = c["ticker"]
-            instrument_id = c["instrument_id"]
-            asset_class = c["asset_class"]
-            dollar_volume = c["dollar_volume"]
-            volume = c["volume"]
-            rank_global = c["rank_global"]
-            rank_asset = c["rank_asset_class"]
-
-            last_close_price = fetch_prev_close_price(ticker)
-            if last_close_price is not None:
-                success_prices += 1
-
-            if idx <= 10:
-                # only spam log for first few
-                log.info(
-                    f"[{idx}/{total}] {ticker} "
-                    f"id={instrument_id} dv={dollar_volume:.0f} "
-                    f"vol={volume:.0f} last_close={last_close_price}"
-                )
-
-            cur.execute(
-                """
-                INSERT INTO instrument_focus_universe (
-                    as_of_date,
-                    instrument_id,
-                    asset_class,
-                    dollar_volume,
-                    volume,
-                    activity_rank_global,
-                    activity_rank_asset_class,
-                    last_close_price
-                )
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
-                ON CONFLICT (as_of_date, instrument_id)
-                DO UPDATE SET
-                    asset_class               = EXCLUDED.asset_class,
-                    dollar_volume             = EXCLUDED.dollar_volume,
-                    volume                    = EXCLUDED.volume,
-                    activity_rank_global      = EXCLUDED.activity_rank_global,
-                    activity_rank_asset_class = EXCLUDED.activity_rank_asset_class,
-                    last_close_price          = EXCLUDED.last_close_price
-                """,
-                (
-                    as_of,
-                    instrument_id,
-                    asset_class,
-                    dollar_volume,
-                    volume,
-                    rank_global,
-                    rank_asset,
-                    last_close_price,
-                ),
-            )
-
-        conn.commit()
-
-    log.info(
-        f"Finished upserting focus universe for {as_of}: "
-        f"{total} rows, {success_prices} with last_close_price populated."
-    )
-
-
-# -------------------------------------------------------------------
-# CLI entrypoint
-# -------------------------------------------------------------------
 
 def main():
-    as_of = date.today()
     conn = get_conn()
+    conn.autocommit = False
+    cur = conn.cursor()
+
     try:
-        build_focus_universe(conn, as_of=as_of)
+        as_of_date = get_latest_price_date(cur)
+        if as_of_date is None:
+            log.warning("instrument_price_daily is empty; nothing to do.")
+            conn.rollback()
+            return
+
+        log.info(f"Latest price_date in instrument_price_daily is {as_of_date}")
+
+        rows = compute_focus_universe(cur, as_of_date)
+        replace_focus_universe_for_date(cur, as_of_date, rows)
+
+        conn.commit()
+        log.info(f"Focus universe updated successfully for {as_of_date}")
+
+    except Exception as e:
+        log.exception(f"Error computing focus universe: {e}")
+        conn.rollback()
+        raise
+
     finally:
+        cur.close()
         conn.close()
 
 

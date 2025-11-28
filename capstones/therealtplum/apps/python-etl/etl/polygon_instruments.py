@@ -22,10 +22,26 @@ def get_conn():
     return psycopg2.connect(DATABASE_URL)
 
 
-def normalize_asset_class(market: str | None) -> str | None:
+def normalize_asset_class(market: str | None, instrument_type: str | None) -> str | None:
     """
-    Map Polygon 'market' to our internal asset_class values.
+    Map Polygon 'market' + 'type' to our internal asset_class values.
+
+    - 'ETF' and related types are treated as asset_class='etf'
+    - Otherwise we fall back to a market-based mapping.
     """
+    # First pass: use instrument type to detect ETFs and fund-like products
+    if instrument_type:
+        t = instrument_type.upper()
+        etf_like_types = {
+            "ETF",      # Exchange-traded fund
+            "ETN",      # Exchange-traded note
+            "ETP",      # Exchange-traded product
+            "CEF",      # Closed-end fund
+        }
+        if t in etf_like_types:
+            return "etf"
+
+    # Fallback: market-based mapping
     if market is None:
         return None
 
@@ -36,7 +52,7 @@ def normalize_asset_class(market: str | None) -> str | None:
         "fx": "fx",
         "otc": "equity",
         "indices": "index",
-        "funds": "etf",
+        "funds": "etf",  # just in case Polygon ever uses this
     }
     return mapping.get(market, market)
 
@@ -44,6 +60,7 @@ def normalize_asset_class(market: str | None) -> str | None:
 # ----------------------------------------------------------------------
 # Compute hash of relevant fields to detect actual changes
 # ----------------------------------------------------------------------
+
 
 def compute_payload_hash(ticker: dict) -> str:
     """
@@ -67,6 +84,7 @@ def compute_payload_hash(ticker: dict) -> str:
 # Upsert with change detection (no ON CONFLICT)
 # ----------------------------------------------------------------------
 
+
 def upsert_instrument(cur, t: dict):
     ticker = t.get("ticker")
     if not ticker:
@@ -74,10 +92,15 @@ def upsert_instrument(cur, t: dict):
 
     name = t.get("name") or ticker
     market = t.get("market")
-    asset_class = normalize_asset_class(market)
+    instrument_type = t.get("type")
+
+    asset_class = normalize_asset_class(market, instrument_type)
 
     exchange = t.get("primary_exchange") or t.get("exchange") or "UNKNOWN"
-    currency_code = t.get("currency_name") or "USD"
+
+    # Normalize to uppercase ISO code (e.g. 'USD', 'EUR')
+    raw_currency = t.get("currency_name") or "USD"
+    currency_code = raw_currency.upper()
 
     locale = t.get("locale")
     region = (locale or "us").upper()
@@ -176,9 +199,9 @@ def upsert_instrument(cur, t: dict):
 # Fetch all tickers from Polygon
 # ----------------------------------------------------------------------
 
+
 # TODO: consider a shared Polygon client module for pagination/backoff logic
 #       so polygon_instruments + instrument_focus_universe don’t diverge.
-
 def fetch_all_tickers():
     base_url = "https://api.polygon.io/v3/reference/tickers"
     params = {
