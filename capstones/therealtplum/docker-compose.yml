@@ -92,12 +92,16 @@ services:
     container_name: fmhub_web
     depends_on:
       - api
+      - db
     environment:
       # How the browser (on your Mac) talks to the Rust API
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
 
       # For /api/version → URL field & prod canonical
       NEXT_PUBLIC_SITE_URL: "https://www.foundry90.com"
+
+      # Database connection for email notifications API
+      DATABASE_URL: postgres://app:app@db:5432/fmhub
 
       NODE_ENV: production
 
