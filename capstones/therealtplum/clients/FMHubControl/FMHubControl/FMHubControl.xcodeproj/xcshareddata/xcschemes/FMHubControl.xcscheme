@@ -51,10 +51,6 @@
          </BuildableReference>
       </BuildableProductRunnable>
       <EnvironmentVariables>
-         <!-- FOUNDRY90_ROOT: Set this in your user-specific scheme (xcuserdata) or system environment -->
-         <!-- User schemes are gitignored - create your own in Xcode: -->
-         <!-- Product > Scheme > Manage Schemes > Duplicate > Edit > Run > Arguments > Environment Variables -->
-         <!-- For apps launched from Finder, the app will use fallback path detection -->
          <EnvironmentVariable
             key = "FOUNDRY90_ROOT"
             value = ""
