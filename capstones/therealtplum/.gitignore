@@ -22,3 +22,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# ---- Personal reference docs (not for version control) ----
+docs/third_party_tools.md
