@@ -389,8 +389,8 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 - [ ] Schedule market_status ETL to run periodically (every minute)
 
 #### 2.5.2 Multiple Polygon API Keys
-**Priority:** High  
-**Status:** 🔄 Ready to Implement
+**Priority:** Medium  
+**Status:** ⚠️ Partially Implemented (Limited by Polygon)
 
 **API Keys Available:**
 - `hadron_1`: Pywc7AM4kmGqrSB4vE6uS1u4X_fVYNxN
@@ -398,16 +398,29 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 - `hadron_3`: sxSrdtYCmdIm9Fo2_r2UHtovzgwKDWID
 - `hadron_4`: TLVZtRpKSpQKO7P27px54SlpSfx5TSvS
 
-**Planned Use Cases:**
-- Load testing with multiple concurrent connections
-- Redundancy and failover
+**Important Limitation Discovered:**
+- ⚠️ **Polygon allows only 1 concurrent WebSocket connection per asset class**
+- Multiple connections result in "max_connections" errors
+- Current implementation uses only the first API key to avoid this limitation
+
+**Current Implementation:**
+- ✅ Support for multiple API keys in environment config (HADRON_API_KEY_1-4)
+- ✅ System detects all available API keys
+- ✅ Uses only first API key for WebSocket connection (due to Polygon limitation)
+- ✅ Logs warning when multiple keys are available but unused
+
+**Future Use Cases (Requires Connection Pooling/Rotation):**
+- Connection failover (rotate to next key if current fails)
+- Load distribution across different API keys (REST API calls)
 - Testing cross-venue normalization
 - Multi-threading/parallel processing validation
 
 **Implementation Plan:**
-- [ ] Add support for multiple API keys in environment config
-- [ ] Create multiple ingest managers (one per API key)
-- [ ] Distribute ticker subscriptions across connections
+- [x] Add support for multiple API keys in environment config
+- [x] Create ingest manager with API key support
+- [x] Handle Polygon's connection limitation gracefully
+- [ ] **Future**: Implement connection pooling/rotation for failover
+- [ ] **Future**: Use multiple keys for REST API calls (not WebSocket)
 - [ ] Add connection health monitoring per key
 
 ### Phase 3: Multi-Venue & Cross-Exchange Normalization
