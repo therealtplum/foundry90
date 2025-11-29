@@ -11,6 +11,7 @@ import logging
 import requests
 import psycopg2
 from datetime import datetime
+from typing import Dict
 
 POLYGON_API_KEY = os.getenv("POLYGON_API_KEY")
 if not POLYGON_API_KEY:
