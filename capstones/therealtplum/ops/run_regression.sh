@@ -273,9 +273,146 @@ fi
 
 echo ""
 
-# Test 9: Check for hardcoded user paths (security/portability check)
+# Test 9: API Functionality - Get Individual Instrument
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Test 9: Path Configuration Check"
+echo "Test 9: API Functionality - Get Individual Instrument"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Try to get the first instrument ID from the database
+FIRST_INSTRUMENT_ID=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT id FROM instruments WHERE status = 'active' ORDER BY id LIMIT 1;" 2>/dev/null || echo "")
+
+if [ -n "$FIRST_INSTRUMENT_ID" ] && [ "$FIRST_INSTRUMENT_ID" != "" ]; then
+  INSTRUMENT_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/instruments/${FIRST_INSTRUMENT_ID}" 2>/dev/null || echo -e "\n000")
+  INSTRUMENT_HTTP_CODE=$(echo "$INSTRUMENT_RESPONSE" | tail -n1)
+  INSTRUMENT_BODY=$(echo "$INSTRUMENT_RESPONSE" | sed '$d')
+  
+  if [ "$INSTRUMENT_HTTP_CODE" = "200" ]; then
+    log_success "API /instruments/${FIRST_INSTRUMENT_ID} endpoint returned 200"
+    if echo "$INSTRUMENT_BODY" | grep -q '"ticker"'; then
+      TICKER=$(echo "$INSTRUMENT_BODY" | grep -o '"ticker":"[^"]*"' | head -1 | cut -d'"' -f4)
+      log_success "API returned instrument details for ticker: ${TICKER}"
+    else
+      log_warning "API /instruments/${FIRST_INSTRUMENT_ID} response format unexpected"
+    fi
+  else
+    log_warning "API /instruments/${FIRST_INSTRUMENT_ID} endpoint returned ${INSTRUMENT_HTTP_CODE}"
+  fi
+else
+  log_warning "No instruments found in database to test individual instrument endpoint"
+fi
+
+echo ""
+
+# Test 10: Web Frontend Root Page
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 10: Web Frontend Root Page"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+WEB_ROOT_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 http://localhost:3001/ 2>/dev/null || echo -e "\n000")
+WEB_ROOT_HTTP_CODE=$(echo "$WEB_ROOT_RESPONSE" | tail -n1)
+
+if [ "$WEB_ROOT_HTTP_CODE" = "200" ]; then
+  log_success "Web frontend root page returned 200"
+else
+  log_warning "Web frontend root page returned ${WEB_ROOT_HTTP_CODE} (expected 200)"
+fi
+
+echo ""
+
+# Test 11: File System Checks
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 11: File System Checks"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check logs directory exists and is writable
+LOGS_DIR="${PROJECT_ROOT}/logs"
+if [ -d "$LOGS_DIR" ]; then
+  log_success "Logs directory exists"
+  if [ -w "$LOGS_DIR" ]; then
+    log_success "Logs directory is writable"
+  else
+    log_error "Logs directory is not writable"
+  fi
+else
+  log_warning "Logs directory does not exist (will be created)"
+  mkdir -p "$LOGS_DIR" 2>/dev/null && log_success "Created logs directory" || log_error "Failed to create logs directory"
+fi
+
+# Check sample_tickers.json exists (used by web app)
+SAMPLE_TICKERS_FILE="${PROJECT_ROOT}/apps/web/data/sample_tickers.json"
+if [ -f "$SAMPLE_TICKERS_FILE" ]; then
+  log_success "sample_tickers.json exists"
+  # Quick check that it's valid JSON
+  if command -v python3 >/dev/null 2>&1; then
+    if python3 -m json.tool "$SAMPLE_TICKERS_FILE" >/dev/null 2>&1; then
+      log_success "sample_tickers.json is valid JSON"
+    else
+      log_warning "sample_tickers.json may not be valid JSON"
+    fi
+  fi
+else
+  log_warning "sample_tickers.json does not exist (may need ETL run: export_sample_tickers_json.sh)"
+fi
+
+echo ""
+
+# Test 12: Docker Images Check
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 12: Docker Images Check"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+REQUIRED_IMAGES=("fmhub-api" "fmhub-web" "fmhub-etl")
+MISSING_IMAGES=0
+
+for image in "${REQUIRED_IMAGES[@]}"; do
+  # Check if image exists (using docker images with grep)
+  if docker images --format '{{.Repository}}' | grep -q "^${image}$"; then
+    log_success "Docker image ${image} exists"
+  else
+    log_warning "Docker image ${image} not found (may need: docker compose build)"
+    ((MISSING_IMAGES++))
+  fi
+done
+
+if [ "$MISSING_IMAGES" -eq 0 ]; then
+  log_success "All required Docker images are present"
+fi
+
+# Check ETL container exists (even if not running)
+if docker ps -a --format '{{.Names}}' | grep -q "^fmhub_etl$"; then
+  log_success "ETL container exists (may not be running, which is normal)"
+else
+  log_warning "ETL container does not exist"
+fi
+
+echo ""
+
+# Test 13: Database Schema Validation
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 13: Database Schema Validation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check that key columns exist in instruments table
+INSTRUMENTS_COLUMNS=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT column_name FROM information_schema.columns WHERE table_name = 'instruments' AND column_name IN ('id', 'ticker', 'name', 'asset_class', 'status');" 2>/dev/null | wc -l | tr -d ' ')
+if [ "$INSTRUMENTS_COLUMNS" -ge 4 ]; then
+  log_success "Instruments table has required columns (id, ticker, name, asset_class, status)"
+else
+  log_warning "Instruments table may be missing required columns (schema may need to be applied)"
+fi
+
+# Check that enum types exist
+ENUM_COUNT=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT COUNT(*) FROM pg_type WHERE typname IN ('asset_class_enum', 'instrument_status_enum');" 2>/dev/null || echo "0")
+if [ "$ENUM_COUNT" -ge 2 ]; then
+  log_success "Required database enum types exist"
+else
+  log_warning "Some database enum types may be missing (schema may need to be applied)"
+fi
+
+echo ""
+
+# Test 14: Check for hardcoded user paths (security/portability check)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 14: Path Configuration Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check shared Xcode scheme for hardcoded paths (user schemes in xcuserdata are gitignored)
