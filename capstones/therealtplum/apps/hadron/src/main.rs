@@ -88,35 +88,36 @@ async fn main() -> Result<()> {
     let db_pool_gateway = db_pool.clone();
 
     // Ingest - support multiple API keys
+    // NOTE: Polygon allows only 1 concurrent WebSocket connection per asset class
+    // Multiple connections will result in "max_connections" errors
+    // For now, use only the first API key. Future: implement connection pooling/rotation
     let api_keys = ingest::IngestManager::get_api_keys();
     info!("Found {} Polygon API key(s)", api_keys.len());
     
     if api_keys.is_empty() {
         warn!("No Polygon API keys found. Hadron will not be able to ingest data.");
     } else {
-        // Spawn one ingest connection per API key
-        for (idx, api_key) in api_keys.iter().enumerate() {
-            let connection_id = if idx == 0 {
-                "default".to_string()
-            } else {
-                format!("hadron_{}", idx)
-            };
-            
-            let raw_tx_clone = raw_tx.clone();
-            let api_key_clone = api_key.clone();
-            let connection_id_clone = connection_id.clone();
-            
-            info!("Spawning ingest connection: {}", connection_id_clone);
-            tokio::spawn(async move {
-                let ingest_manager = ingest::IngestManager::with_api_key(
-                    raw_tx_clone,
-                    api_key_clone,
-                    connection_id_clone.clone(),
-                );
-                if let Err(e) = ingest_manager.start().await {
-                    warn!("[{}] Ingest manager error: {}", connection_id_clone, e);
-                }
-            });
+        // Polygon limitation: only 1 concurrent WebSocket connection per asset class
+        // Use only the first API key to avoid "max_connections" errors
+        // TODO: Implement connection pooling/rotation for multiple keys
+        let api_key = api_keys[0].clone();
+        let connection_id = "default".to_string();
+        
+        info!("Spawning ingest connection: {} (Polygon allows only 1 concurrent connection per asset class)", connection_id);
+        let raw_tx_clone = raw_tx.clone();
+        tokio::spawn(async move {
+            let ingest_manager = ingest::IngestManager::with_api_key(
+                raw_tx_clone,
+                api_key,
+                connection_id.clone(),
+            );
+            if let Err(e) = ingest_manager.start().await {
+                warn!("[{}] Ingest manager error: {}", connection_id, e);
+            }
+        });
+        
+        if api_keys.len() > 1 {
+            warn!("Multiple API keys found ({}), but only using the first one due to Polygon's 1-connection-per-asset-class limitation. Consider implementing connection pooling/rotation.", api_keys.len());
         }
     }
 

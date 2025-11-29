@@ -191,12 +191,21 @@ impl IngestManager {
                                         error!("[{}] Polygon authentication failed: {:?}", connection_id, payload);
                                         break;
                                     } else if status == "error" {
-                                        // "not authorized" might mean API key doesn't have WebSocket access
-                                        // Continue running but log the issue
+                                        // Handle various error types
                                         if let Some(msg) = payload.get("message").and_then(|v| v.as_str()) {
-                                            warn!("[{}] Polygon subscription error: {} - This may indicate the API key doesn't have WebSocket access. System will continue running.", connection_id, msg);
-                                            // Don't break - keep connection alive in case it's a temporary issue
+                                            if msg.contains("not authorized") {
+                                                warn!("[{}] Polygon subscription error: {} - This may indicate the API key doesn't have WebSocket access or subscription format is incorrect. System will continue running.", connection_id, msg);
+                                            } else if msg.contains("max_connections") {
+                                                error!("[{}] Polygon max connections exceeded: {} - Polygon allows only 1 concurrent WebSocket connection per asset class. This connection will close.", connection_id, msg);
+                                                // Break this connection - it won't work anyway
+                                                break;
+                                            } else {
+                                                warn!("[{}] Polygon error: {} - System will continue running.", connection_id, msg);
+                                            }
                                         }
+                                    } else if status == "max_connections" {
+                                        error!("[{}] Polygon max connections exceeded - Polygon allows only 1 concurrent WebSocket connection per asset class. This connection will close.", connection_id);
+                                        break;
                                     }
                                 }
                             } else if ev == "T" {
