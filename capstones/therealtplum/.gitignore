@@ -22,3 +22,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# ---- Documentation with sensitive info ----
+docs/auth0_guide.md

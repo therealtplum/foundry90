@@ -18,6 +18,7 @@ use tracing_subscriber::prelude::*;
 use tracing_subscriber::{fmt, EnvFilter};
 
 mod system_health;
+mod auth;
 
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
 use deadpool_redis::redis::AsyncCommands;
@@ -276,9 +277,12 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Build the router with all routes
     let app = Router::new()
+        // Public routes (no authentication required)
         .route("/health", get(health_handler))
         .route("/system/health", get(system_health::get_system_health))
+        // Protected routes (authentication optional but recommended)
         .route("/instruments", get(list_instruments_handler))
         .route("/instruments/{id}", get(get_instrument_handler))
         .route("/instruments/{id}/news", get(list_instrument_news_handler))
@@ -287,8 +291,11 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
-        .with_state(state)
-        .layer(cors);
+        // Optional: Add auth middleware here if you want to protect these routes
+        // Example: .layer(middleware::from_fn(auth::validate_jwt))  // Requires auth
+        // Example: .layer(middleware::from_fn(auth::optional_validate_jwt))  // Optional auth
+        .layer(cors)
+        .with_state(state);
 
     let port: u16 = env::var("PORT")
         .ok()
@@ -302,6 +309,7 @@ async fn main() -> anyhow::Result<()> {
         listener.local_addr()?
     );
 
+    // Convert router to MakeService for axum::serve
     axum::serve(listener, app).await?;
 
     Ok(())
@@ -310,6 +318,34 @@ async fn main() -> anyhow::Result<()> {
 // ---------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------
+
+// Example protected route handler (commented out - uncomment when needed)
+// To use: Add `.layer(middleware::from_fn(auth::validate_jwt))` to the route
+// Then extract claims using: `let claims = auth::get_claims(&request)?;`
+//
+// async fn example_protected_handler(
+//     request: Request,
+// ) -> impl IntoResponse {
+//     let claims = match auth::get_claims(&request) {
+//         Some(c) => c,
+//         None => {
+//             return (
+//                 StatusCode::UNAUTHORIZED,
+//                 Json(json!({"error": "Authentication required"})),
+//             );
+//         }
+//     };
+//
+//     (
+//         StatusCode::OK,
+//         Json(json!({
+//             "message": "Authenticated request",
+//             "user_id": claims.sub,
+//             "email": claims.email,
+//             "name": claims.name,
+//         })),
+//     )
+// }
 
 async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
     let db_ok = match sqlx::query_scalar::<_, i32>("SELECT 1")

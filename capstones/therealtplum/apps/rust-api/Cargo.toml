@@ -27,3 +27,4 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 rust_decimal = { version = "1", features = ["serde"] }
 redis = { version = "0.26", features = ["tokio-comp"] }
 deadpool-redis = "0.16"
+jsonwebtoken = "9.3"

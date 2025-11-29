@@ -2,6 +2,7 @@
 import type { Metadata } from "next";
 import "../styles/globals.css";
 import ThemeToggle from "../components/ThemeToggle";
+import { TopNav } from "../components/layout/TopNav";
 
 export const metadata: Metadata = {
   title: "Foundry90",
@@ -16,6 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="f90-body">
+        <TopNav />
         {children}
         <ThemeToggle />
       </body>
