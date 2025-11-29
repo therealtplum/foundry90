@@ -40,11 +40,15 @@ final class OperationsViewModel: ObservableObject {
         }
 
         // 2. Try common locations relative to home directory
+        // Note: These are generic fallback paths. Users should set FOUNDRY90_ROOT env var instead.
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         let commonPaths = [
             "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum",
             "\(homeDir)/foundry90/capstones/therealtplum",
+            "\(homeDir)/Documents/foundry90/capstones/therealtplum",
             "\(homeDir)/projects/foundry90/capstones/therealtplum",
+            "\(homeDir)/code/foundry90/capstones/therealtplum",
+            "\(homeDir)/Documents/projects/foundry90/capstones/therealtplum",
         ]
         
         for path in commonPaths {
@@ -61,8 +65,9 @@ final class OperationsViewModel: ObservableObject {
             return cwdURL
         }
         
-        // 4. Last resort: return the default expected path
-        let defaultPath = "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum"
+        // 4. Last resort: return a generic path (user should set FOUNDRY90_ROOT env var)
+        // This will likely fail, but provides a clear error message
+        let defaultPath = "\(homeDir)/foundry90/capstones/therealtplum"
         return URL(fileURLWithPath: defaultPath, isDirectory: true)
     }
 

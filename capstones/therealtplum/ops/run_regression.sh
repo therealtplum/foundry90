@@ -273,6 +273,68 @@ fi
 
 echo ""
 
+# Test 9: Check for hardcoded user paths (security/portability check)
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 9: Path Configuration Check"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check shared Xcode scheme for hardcoded paths (user schemes in xcuserdata are gitignored)
+XCODE_SCHEME="${PROJECT_ROOT}/clients/FMHubControl/FMHubControl/FMHubControl.xcodeproj/xcshareddata/xcschemes/FMHubControl.xcscheme"
+if [ -f "$XCODE_SCHEME" ]; then
+  # Check for hardcoded /Users/ paths (common macOS user path pattern)
+  # Note: User-specific schemes in xcuserdata/ can have hardcoded paths (they're gitignored)
+  HARDCODED_PATHS=$(grep -c "/Users/[^/]*/" "$XCODE_SCHEME" 2>/dev/null | tr -d '[:space:]' || echo "0")
+  if [ "${HARDCODED_PATHS:-0}" -eq 0 ]; then
+    log_success "Shared Xcode scheme does not contain hardcoded user paths"
+  else
+    log_error "Shared Xcode scheme contains ${HARDCODED_PATHS} hardcoded user path(s)"
+    log_info "  → User-specific schemes in xcuserdata/ can have hardcoded paths (gitignored)"
+  fi
+  
+  # Check that FOUNDRY90_ROOT is properly configured (disabled or empty in shared scheme)
+  if grep -q 'key = "FOUNDRY90_ROOT"' "$XCODE_SCHEME"; then
+    log_success "Shared Xcode scheme has FOUNDRY90_ROOT environment variable configured"
+  else
+    log_warning "Shared Xcode scheme missing FOUNDRY90_ROOT environment variable"
+  fi
+else
+  log_warning "Xcode scheme file not found (skipping Xcode-specific tests)"
+fi
+
+# Check shell scripts use FOUNDRY90_ROOT pattern
+SCRIPT_DIR="${PROJECT_ROOT}/ops"
+HARDCODED_SCRIPT_PATHS=0
+for script in "${SCRIPT_DIR}"/*.sh; do
+  if [ -f "$script" ]; then
+    # Check for hardcoded paths that aren't using FOUNDRY90_ROOT or relative paths
+    if grep -qE "FOUNDRY90_ROOT|cd.*\$\(.*pwd\)|\$\(cd" "$script"; then
+      # Script uses proper path resolution
+      continue
+    elif grep -qE "/Users/[^/]*/Documents|/home/[^/]*/" "$script"; then
+      ((HARDCODED_SCRIPT_PATHS++))
+      log_error "Script $(basename "$script") contains hardcoded user path"
+    fi
+  fi
+done
+
+if [ "$HARDCODED_SCRIPT_PATHS" -eq 0 ]; then
+  log_success "All shell scripts use FOUNDRY90_ROOT or relative paths"
+fi
+
+# Check that FOUNDRY90_ROOT is used in key scripts
+KEY_SCRIPTS=("run_full_etl.sh" "run_regression.sh" "export_sample_tickers_json.sh")
+for script in "${KEY_SCRIPTS[@]}"; do
+  if [ -f "${SCRIPT_DIR}/${script}" ]; then
+    if grep -q "FOUNDRY90_ROOT" "${SCRIPT_DIR}/${script}"; then
+      log_success "Script ${script} uses FOUNDRY90_ROOT environment variable"
+    else
+      log_warning "Script ${script} may not use FOUNDRY90_ROOT"
+    fi
+  fi
+done
+
+echo ""
+
 # Summary
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "Regression Test Summary"
