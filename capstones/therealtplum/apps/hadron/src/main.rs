@@ -87,13 +87,38 @@ async fn main() -> Result<()> {
     let db_pool_recorder = db_pool.clone();
     let db_pool_gateway = db_pool.clone();
 
-    // Ingest
-    let ingest_manager = IngestManager::new(raw_tx);
-    tokio::spawn(async move {
-        if let Err(e) = ingest_manager.start().await {
-            warn!("Ingest manager error: {}", e);
+    // Ingest - support multiple API keys
+    let api_keys = ingest::IngestManager::get_api_keys();
+    info!("Found {} Polygon API key(s)", api_keys.len());
+    
+    if api_keys.is_empty() {
+        warn!("No Polygon API keys found. Hadron will not be able to ingest data.");
+    } else {
+        // Spawn one ingest connection per API key
+        for (idx, api_key) in api_keys.iter().enumerate() {
+            let connection_id = if idx == 0 {
+                "default".to_string()
+            } else {
+                format!("hadron_{}", idx)
+            };
+            
+            let raw_tx_clone = raw_tx.clone();
+            let api_key_clone = api_key.clone();
+            let connection_id_clone = connection_id.clone();
+            
+            info!("Spawning ingest connection: {}", connection_id_clone);
+            tokio::spawn(async move {
+                let ingest_manager = ingest::IngestManager::with_api_key(
+                    raw_tx_clone,
+                    api_key_clone,
+                    connection_id_clone.clone(),
+                );
+                if let Err(e) = ingest_manager.start().await {
+                    warn!("[{}] Ingest manager error: {}", connection_id_clone, e);
+                }
+            });
         }
-    });
+    }
 
     // Normalize - needs to send to broadcast channel
     let tick_tx_normalize = tick_tx.clone();
