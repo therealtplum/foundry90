@@ -119,6 +119,17 @@ These are not hard requirements, but they make the experience smoother:
 
 Read the [Glossary](./glossary.md).
 
-- If the vocabulary feels understandable and a bit exciting: you’re ready.
+- If the vocabulary feels understandable and a bit exciting: you're ready.
 - If it feels overwhelming but not completely alien: you can still do this, just go slower.
 - If everything sounds like a foreign language: do a smaller beginner course first, then come back to Foundry90.
+
+---
+
+## Next Steps
+
+If you meet the prerequisites:
+
+1. Read [`01_overview_and_syllabus.md`](./01_overview_and_syllabus.md) to understand the program
+2. Start with [`03_weekly_exercises.md`](./03_weekly_exercises.md) – Week 1
+3. Use [`02_readings.md`](./02_readings.md) as a resource guide
+4. Get the starter kit from [`../starter-kit/README.md`](../starter-kit/README.md)

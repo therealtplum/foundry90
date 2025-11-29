@@ -292,4 +292,12 @@ Includes:
 
 You’re ready for Foundry90.
 
-If it felt overwhelming, but curious-making: you can still do it – just move at your own pace and lean hard on Week 1 as “orientation week.”
+If it felt overwhelming, but curious-making: you can still do it – just move at your own pace and lean hard on Week 1 as "orientation week."
+
+---
+
+## Related Documentation
+
+- **Prerequisites:** See [`prerequisites.md`](./prerequisites.md) to assess if you're ready
+- **Readings:** Check [`02_readings.md`](./02_readings.md) for learning resources
+- **Weekly Exercises:** Start building with [`03_weekly_exercises.md`](./03_weekly_exercises.md)

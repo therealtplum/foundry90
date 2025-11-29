@@ -93,7 +93,17 @@ By Day 90, you should be able to:
 - Make reasonable architectural decisions with trade-offs in mind.
 - Build and present your own capstone: a small but realistic platform.
 
-If you’re unsure whether this is too advanced, read:
+If you're unsure whether this is too advanced, read:
 
 - [`prerequisites.md`](./prerequisites.md)
 - [`glossary.md`](./glossary.md)
+
+---
+
+## Next Steps
+
+1. Read [`prerequisites.md`](./prerequisites.md) to confirm this is right for you
+2. Review [`02_readings.md`](./02_readings.md) to see what resources you'll use
+3. Start [`03_weekly_exercises.md`](./03_weekly_exercises.md) – Week 1
+4. Use [`06_rubric.md`](./06_rubric.md) to track your progress
+5. Reference [`07_capstone_guide.md`](./07_capstone_guide.md) as you build your project
