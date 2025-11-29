@@ -220,9 +220,11 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 
 ## Things to Keep in Mind
 
-### 1. Polygon API Plan & WebSocket Configuration
+### 1. Polygon/Massive.com API Plan & Configuration
 
-**Current Polygon Plan Includes:**
+**Current Polygon/Massive.com Plans:**
+
+**Stocks Plan (Active):**
 - ✅ All US Stocks Tickers
 - ✅ Unlimited API Calls
 - ✅ 5 Years Historical Data
@@ -233,20 +235,61 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 - ✅ Corporate Actions
 - ✅ Technical Indicators
 - ✅ Minute Aggregates
-- ✅ **WebSockets** (delayed endpoint)
+- ✅ **WebSockets** (delayed endpoint: `wss://delayed.massive.com/stocks`)
 - ✅ Snapshot
 - ✅ Second Aggregates
 
+**Options Plan (Basic - $0/month):**
+- ✅ All US Options Tickers
+- ⚠️ 5 API Calls / Minute (limited)
+- ⚠️ 2 Years Historical Data
+- ⚠️ **End of Day Data only** (no real-time or delayed)
+- ❌ No WebSockets
+- ✅ Reference Data
+- ✅ Corporate Actions
+- ✅ Technical Indicators
+- ❌ No Minute Aggregates
+- ❌ No Greeks, IV, & Open Interest
+
+**Currencies Plan (Basic - $0/month):**
+- ✅ All Forex and Crypto Tickers
+- ⚠️ 5 API Calls / Minute (limited)
+- ⚠️ 2 Years Historical Data
+- ⚠️ **End of Day Data only** (no real-time or delayed)
+- ❌ No WebSockets
+- ✅ Reference Data
+- ✅ Technical Indicators
+- ✅ Minute Aggregates (REST API only)
+
+**Indices Plan (Basic - $0/month):**
+- ⚠️ Limited Index Tickers
+- ⚠️ 5 API Calls / Minute (limited)
+- ⚠️ 1+ Year Historical Data
+- ⚠️ **End of Day Data only** (no real-time or delayed)
+- ❌ No WebSockets
+- ✅ Reference Data
+- ✅ Technical Indicators
+- ❌ No Minute Aggregates
+
 **WebSocket Configuration:**
-- **Default**: `wss://delayed.massive.com/stocks` (15-minute delayed, matches current plan)
+- **Stocks**: `wss://delayed.massive.com/stocks` (15-minute delayed, matches current plan)
 - **Real-time**: `wss://socket.massive.com/stocks` (requires real-time plan upgrade)
 - **Environment Variable**: `HADRON_WEBSOCKET_MODE=delayed` (default) or `HADRON_WEBSOCKET_MODE=realtime`
+- **Options/Currencies/Indices**: No WebSocket access on Basic plans - must use REST API
 
 **Current State:**
-- System configured to use delayed WebSocket endpoint by default
-- Multiple API keys supported (POLYGON_API_KEY + HADRON_API_KEY_1-4)
-- "not authorized" errors may occur if subscription format is incorrect or API key lacks specific permissions
-- System is resilient and continues running despite subscription errors
+- ✅ System configured to use delayed WebSocket endpoint for Stocks
+- ✅ Multiple API keys supported (POLYGON_API_KEY + HADRON_API_KEY_1-4)
+- ⚠️ Options, Currencies, and Indices require REST API integration (not yet implemented)
+- ⚠️ "not authorized" errors may occur if subscription format is incorrect or API key lacks specific permissions
+- ✅ System is resilient and continues running despite subscription errors
+
+**Future Implementation Needed:**
+- [ ] REST API ingest for Options (End of Day data)
+- [ ] REST API ingest for Currencies (End of Day data)
+- [ ] REST API ingest for Indices (End of Day data)
+- [ ] Polling scheduler for End of Day data collection
+- [ ] Unified normalization across asset classes
 
 **Action Items:**
 - Monitor Polygon subscription status and error messages
