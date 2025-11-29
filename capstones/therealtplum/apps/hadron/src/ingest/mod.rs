@@ -75,9 +75,13 @@ impl IngestManager {
         let connection_id = self.connection_id.clone().unwrap_or_else(|| "default".to_string());
 
         // Polygon/Massive.com WebSocket URL (no API key in URL - auth happens via message)
-        // Real-time: wss://socket.massive.com/stocks
-        // Delayed: wss://delayed.massive.com/stocks
-        let url = "wss://socket.massive.com/stocks";
+        // Real-time: wss://socket.massive.com/stocks (requires real-time plan)
+        // Delayed: wss://delayed.massive.com/stocks (15-minute delayed, included in most plans)
+        // Use delayed endpoint by default (can be overridden via HADRON_WEBSOCKET_MODE env var)
+        let url = match env::var("HADRON_WEBSOCKET_MODE").as_deref() {
+            Ok("realtime") => "wss://socket.massive.com/stocks",
+            Ok("delayed") | Ok(_) | Err(_) => "wss://delayed.massive.com/stocks",
+        };
 
         info!("[{}] Connecting to Polygon WebSocket: {}", connection_id, url);
 

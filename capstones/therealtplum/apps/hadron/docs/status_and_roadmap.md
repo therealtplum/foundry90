@@ -147,10 +147,12 @@ All components communicate via async channels (Tokio `mpsc` and `broadcast`), en
 
 **Updated Implementation (Nov 29, 2025):**
 Based on official Polygon/Massive.com documentation (https://massive.com/docs/websocket/quickstart):
-1. ✅ **Fixed WebSocket URL**: Changed from `wss://socket.polygon.io/stocks?apiKey={}` to `wss://socket.massive.com/stocks` (no API key in URL)
-2. ✅ **Fixed Authentication**: Now sends `{"action":"auth","params":"API_KEY"}` message after connection (not in URL)
-3. ✅ **Fixed Subscription Format**: Changed from array to comma-separated string: `"T.AAPL,T.MSFT"` (per official docs)
-4. ✅ **Improved Auth Flow**: Wait for "connected" → send auth → wait for "auth_success" → subscribe
+1. ✅ **Fixed WebSocket URL**: Changed from `wss://socket.polygon.io/stocks?apiKey={}` to `wss://delayed.massive.com/stocks` (15-minute delayed, matches plan)
+2. ✅ **Configurable Endpoint**: Added `HADRON_WEBSOCKET_MODE` env var to switch between `delayed` (default) and `realtime`
+3. ✅ **Fixed Authentication**: Now sends `{"action":"auth","params":"API_KEY"}` message after connection (not in URL)
+4. ✅ **Fixed Subscription Format**: Changed from array to comma-separated string: `"T.AAPL,T.MSFT"` (per official docs)
+5. ✅ **Improved Auth Flow**: Wait for "connected" → send auth → wait for "auth_success" → subscribe
+6. ✅ **Multiple API Keys**: Support for POLYGON_API_KEY + HADRON_API_KEY_1-4 with independent connections
 
 **Code Locations:**
 - `src/ingest/mod.rs` lines 22-46 (connection and auth flow)
@@ -218,17 +220,38 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 
 ## Things to Keep in Mind
 
-### 1. Polygon API Limitations
+### 1. Polygon API Plan & WebSocket Configuration
+
+**Current Polygon Plan Includes:**
+- ✅ All US Stocks Tickers
+- ✅ Unlimited API Calls
+- ✅ 5 Years Historical Data
+- ✅ 100% Market Coverage
+- ✅ **15-minute Delayed Data** (not real-time)
+- ✅ Unlimited File Downloads
+- ✅ Reference Data
+- ✅ Corporate Actions
+- ✅ Technical Indicators
+- ✅ Minute Aggregates
+- ✅ **WebSockets** (delayed endpoint)
+- ✅ Snapshot
+- ✅ Second Aggregates
+
+**WebSocket Configuration:**
+- **Default**: `wss://delayed.massive.com/stocks` (15-minute delayed, matches current plan)
+- **Real-time**: `wss://socket.massive.com/stocks` (requires real-time plan upgrade)
+- **Environment Variable**: `HADRON_WEBSOCKET_MODE=delayed` (default) or `HADRON_WEBSOCKET_MODE=realtime`
 
 **Current State:**
-- API key may not have WebSocket access (requires paid plan)
-- "not authorized" errors are logged but don't break the system
-- System is resilient and will work when API access is upgraded
+- System configured to use delayed WebSocket endpoint by default
+- Multiple API keys supported (POLYGON_API_KEY + HADRON_API_KEY_1-4)
+- "not authorized" errors may occur if subscription format is incorrect or API key lacks specific permissions
+- System is resilient and continues running despite subscription errors
 
 **Action Items:**
-- Monitor Polygon subscription status
-- Consider upgrading API plan for real-time data
-- Alternative: Use Polygon REST API for historical data during development
+- Monitor Polygon subscription status and error messages
+- Verify subscription format matches Polygon's requirements
+- If upgrading to real-time plan, set `HADRON_WEBSOCKET_MODE=realtime`
 
 ### 2. Market Hours
 
