@@ -23,16 +23,15 @@ impl IngestManager {
         let api_key = env::var("POLYGON_API_KEY")
             .context("POLYGON_API_KEY environment variable not set")?;
 
-        // Polygon WebSocket URL for trades/quotes
-        let url = format!(
-            "wss://socket.polygon.io/stocks?apiKey={}",
-            api_key
-        );
+        // Polygon/Massive.com WebSocket URL (no API key in URL - auth happens via message)
+        // Real-time: wss://socket.massive.com/stocks
+        // Delayed: wss://delayed.massive.com/stocks
+        let url = "wss://socket.massive.com/stocks";
 
         info!("Connecting to Polygon WebSocket: {}", url);
 
         loop {
-            match self.connect_and_stream(&url).await {
+            match self.connect_and_stream(&url, &api_key).await {
                 Ok(()) => {
                     warn!("Polygon connection closed, reconnecting in 5 seconds...");
                     tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
@@ -45,7 +44,7 @@ impl IngestManager {
         }
     }
 
-    async fn connect_and_stream(&self, url: &str) -> Result<()> {
+    async fn connect_and_stream(&self, url: &str, api_key: &str) -> Result<()> {
         let (ws_stream, _) = connect_async(url)
             .await
             .context("Failed to connect to Polygon WebSocket")?;
@@ -54,8 +53,9 @@ impl IngestManager {
 
         let (mut write, mut read) = ws_stream.split();
 
-        // Wait for authentication confirmation
+        // Wait for connection confirmation, then authenticate
         let mut authenticated = false;
+        let mut subscribed = false;
         let mut messages_received = 0;
 
         // Read messages
@@ -89,15 +89,30 @@ impl IngestManager {
                         if let Some(ev) = payload.get("ev").and_then(|v| v.as_str()) {
                             if ev == "status" {
                                 if let Some(status) = payload.get("status").and_then(|v| v.as_str()) {
-                                    if status == "auth_success" || status == "connected" {
+                                    if status == "connected" && !authenticated {
+                                        // Connection successful - now authenticate
+                                        info!("Polygon WebSocket connected, authenticating...");
+                                        let auth_msg = json!({
+                                            "action": "auth",
+                                            "params": api_key
+                                        });
+
+                                        if let Err(e) = write.send(Message::Text(serde_json::to_string(&auth_msg)?)).await {
+                                            error!("Failed to send auth message: {}", e);
+                                            break;
+                                        }
+                                    } else if status == "auth_success" && !subscribed {
                                         authenticated = true;
                                         info!("Polygon authentication successful");
                                         
                                         // Now subscribe to trades for a few popular tickers
-                                        // For MVP, subscribe to a small set of active instruments
-                                        // Polygon expects params as an array of strings
+                                        // Polygon expects params as comma-separated string: "T.AAPL,T.MSFT"
                                         let tickers = vec!["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"];
-                                        let subscribe_params: Vec<String> = tickers.iter().map(|t| format!("T.{}", t)).collect();
+                                        let subscribe_params: String = tickers.iter()
+                                            .map(|t| format!("T.{}", t))
+                                            .collect::<Vec<_>>()
+                                            .join(",");
+                                        
                                         let subscribe_msg = json!({
                                             "action": "subscribe",
                                             "params": subscribe_params
@@ -108,8 +123,8 @@ impl IngestManager {
                                             break;
                                         }
 
+                                        subscribed = true;
                                         info!("Subscribed to Polygon trades for: {:?}", tickers);
-                                        continue;
                                     } else if status == "auth_failed" {
                                         error!("Polygon authentication failed: {:?}", payload);
                                         break;
@@ -159,33 +174,6 @@ impl IngestManager {
                     break;
                 }
                 _ => {}
-            }
-        }
-
-        Ok(())
-    }
-
-    async fn handle_message(&self, text: &str) -> Result<()> {
-        let payload: serde_json::Value = serde_json::from_str(text)
-            .context("Failed to parse Polygon message as JSON")?;
-
-        // Polygon sends different message types
-        // For MVP, we'll handle trade events
-        if let Some(ev) = payload.get("ev") {
-            let event_type = ev.as_str().unwrap_or("");
-            
-            // Only process trade events for now
-            if event_type == "T" {
-                let raw_event = RawEvent {
-                    source: "polygon".to_string(),
-                    venue: "polygon_ws".to_string(),
-                    raw_payload: payload,
-                    received_at: Utc::now(),
-                };
-
-                if let Err(e) = self.tx.send(raw_event).await {
-                    error!("Failed to send raw event to normalize: {}", e);
-                }
             }
         }
 

@@ -3,7 +3,7 @@
 
 **Last Updated:** November 29, 2025  
 **Branch:** `hadron-v1`  
-**Phase:** Phase 1 Complete - Core Pipeline MVP
+**Phase:** Phase 1 Complete - Core Pipeline MVP (WebSocket fixes + Reference Data added)
 
 ---
 
@@ -139,20 +139,29 @@ All components communicate via async channels (Tokio `mpsc` and `broadcast`), en
 3. **Authentication Flow**: Need to wait for "connected" status before subscribing
 4. **API Key Limitations**: Free-tier Polygon API keys may not have WebSocket access
 
-**Solutions Implemented:**
+**Solutions Implemented (Initial):**
 1. ✅ Changed subscription format from `"T.*"` to array: `["T.AAPL", "T.MSFT", ...]`
 2. ✅ Added array parsing for incoming messages
 3. ✅ Implemented authentication state machine (wait for "connected" before subscribing)
 4. ✅ Made error handling resilient - "not authorized" warnings don't break the connection
 
+**Updated Implementation (Nov 29, 2025):**
+Based on official Polygon/Massive.com documentation (https://massive.com/docs/websocket/quickstart):
+1. ✅ **Fixed WebSocket URL**: Changed from `wss://socket.polygon.io/stocks?apiKey={}` to `wss://socket.massive.com/stocks` (no API key in URL)
+2. ✅ **Fixed Authentication**: Now sends `{"action":"auth","params":"API_KEY"}` message after connection (not in URL)
+3. ✅ **Fixed Subscription Format**: Changed from array to comma-separated string: `"T.AAPL,T.MSFT"` (per official docs)
+4. ✅ **Improved Auth Flow**: Wait for "connected" → send auth → wait for "auth_success" → subscribe
+
 **Code Locations:**
+- `src/ingest/mod.rs` lines 22-46 (connection and auth flow)
 - `src/ingest/mod.rs` lines 87-141 (message handling)
 - `src/ingest/mod.rs` lines 99-104 (subscription format)
 
 **Key Learnings:**
-- Always check API documentation for exact message formats
-- Polygon WebSocket requires specific subscription format
-- Free-tier API keys may have limitations - need paid plan for real-time data
+- Always check official API documentation for exact message formats
+- Polygon/Massive.com WebSocket uses `wss://socket.massive.com/stocks` (not polygon.io)
+- Authentication happens via message, not URL parameter
+- Subscription params are comma-separated strings, not arrays
 - Connection resilience is critical - don't break on non-fatal errors
 
 ### Database Query Issues
@@ -337,6 +346,46 @@ All components communicate via async channels (Tokio `mpsc` and `broadcast`), en
 - Conflicting decisions are resolved deterministically
 - Risk limits are enforced before order creation
 - Multiple strategy decisions can be merged intelligently
+
+### Phase 2.5: Reference Data & Multiple API Keys (In Progress)
+
+#### 2.5.1 Reference Data Tables
+**Priority:** High  
+**Status:** ✅ Complete
+
+**Implemented:**
+- ✅ `market_holidays` table - Upcoming market holidays
+- ✅ `condition_codes` table - Trade/quote condition codes
+- ✅ `market_status` table - Current market status snapshots
+- ✅ ETL jobs: `polygon_market_holidays.py`, `polygon_condition_codes.py`, `polygon_market_status.py`
+- ✅ Market status API endpoint: `GET /market/status` in rust-api
+
+**Next Steps:**
+- [ ] Run ETL jobs to populate reference data
+- [ ] Add market status display to FMHub macOS app
+- [ ] Schedule market_status ETL to run periodically (every minute)
+
+#### 2.5.2 Multiple Polygon API Keys
+**Priority:** High  
+**Status:** 🔄 Ready to Implement
+
+**API Keys Available:**
+- `hadron_1`: Pywc7AM4kmGqrSB4vE6uS1u4X_fVYNxN
+- `hadron_2`: qWziFpnehuZiYw5foeJ92OLoY2fhH24O
+- `hadron_3`: sxSrdtYCmdIm9Fo2_r2UHtovzgwKDWID
+- `hadron_4`: TLVZtRpKSpQKO7P27px54SlpSfx5TSvS
+
+**Planned Use Cases:**
+- Load testing with multiple concurrent connections
+- Redundancy and failover
+- Testing cross-venue normalization
+- Multi-threading/parallel processing validation
+
+**Implementation Plan:**
+- [ ] Add support for multiple API keys in environment config
+- [ ] Create multiple ingest managers (one per API key)
+- [ ] Distribute ticker subscriptions across connections
+- [ ] Add connection health monitoring per key
 
 ### Phase 3: Multi-Venue & Cross-Exchange Normalization
 
