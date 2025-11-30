@@ -117,16 +117,8 @@ struct SystemHealthView: View {
     
     private func assetClassStatusTile(title: String, status: String) -> some View {
         let normalized = status.lowercased()
-        let isOpen: Bool
-        let displayText: String
-        
-        if title == "KALSHI" {
-            isOpen = normalized == "active"
-            displayText = normalized == "active" ? "Active" : "Inactive"
-        } else {
-            isOpen = normalized == "open" || normalized == "extended-hours"
-            displayText = normalized == "extended-hours" ? "Extended" : (isOpen ? "Open" : "Closed")
-        }
+        let isOpen = normalized == "open" || normalized == "extended-hours"
+        let displayText = normalized == "extended-hours" ? "Extended" : (isOpen ? "Open" : "Closed")
 
         return VStack(alignment: .leading, spacing: 8) {
             Text(title)
@@ -162,20 +154,38 @@ struct SystemHealthView: View {
                 .font(.headline)
                 .foregroundColor(themeManager.textColor)
 
-            webSection(
-                title: "Local (Docker)",
-                web: viewModel.health?.webLocal,
-                isProdSection: false
-            )
-
-            Divider()
-                .background(themeManager.panelBorder)
-
-            webSection(
-                title: "Production (Vercel)",
-                web: viewModel.health?.webProd,
-                isProdSection: true
-            )
+            HStack(alignment: .top, spacing: 16) {
+                // Local (Docker) - Left side
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Local (Docker)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.textColor)
+                    
+                    webSectionContent(
+                        web: viewModel.health?.webLocal,
+                        isProdSection: false
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                
+                Divider()
+                    .background(themeManager.panelBorder)
+                
+                // Production (Vercel) - Right side
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Production (Vercel)")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .foregroundColor(themeManager.textColor)
+                    
+                    webSectionContent(
+                        web: viewModel.health?.webProd,
+                        isProdSection: true
+                    )
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -186,115 +196,95 @@ struct SystemHealthView: View {
         )
         .cornerRadius(16)
     }
-
-    private func webSection(
-        title: String,
+    
+    private func webSectionContent(
         web: WebHealth?,
         isProdSection: Bool
     ) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.subheadline)
-                    .foregroundColor(themeManager.textColor)
-
-                Spacer()
-
-                if let status = web?.status {
-                    Text(status.capitalized)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(status.lowercased() == "up"
-                                      ? themeManager.statusUpColor.opacity(0.2)
-                                      : themeManager.statusDownColor.opacity(0.2))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(themeManager.panelBorder, lineWidth: 0.5)
-                        )
-                } else {
-                    Text("No data")
-                        .font(.caption)
-                        .foregroundColor(themeManager.textSoftColor)
-                }
-            }
-
+        Group {
             if let web = web {
-                // URL (clickable)
-                HStack(alignment: .top, spacing: 8) {
-                    Text("URL:")
-                        .foregroundColor(themeManager.textSoftColor)
-
-                    if let url = URL(string: web.url) {
-                        Link(web.url, destination: url)
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundColor(themeManager.accentColor)
-                    } else {
-                        Text(web.url)
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundColor(themeManager.textColor)
+                VStack(alignment: .leading, spacing: 8) {
+                    // Status badge
+                    HStack {
+                        Text(web.status.capitalized)
+                            .font(.caption)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(web.status.lowercased() == "up"
+                                          ? themeManager.statusUpColor.opacity(0.2)
+                                          : themeManager.statusDownColor.opacity(0.2))
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(themeManager.panelBorder, lineWidth: 0.5)
+                            )
                     }
-
-                    Spacer()
-                }
-
-                // Build
-                if let commit = web.buildCommit {
-                    HStack(spacing: 8) {
-                        Text("Build:")
+                    
+                    // URL (clickable)
+                    HStack(alignment: .top, spacing: 8) {
+                        Text("URL:")
                             .foregroundColor(themeManager.textSoftColor)
-                        Text(commit.count > 7 ? String(commit.prefix(7)) : commit)
-                            .font(.system(size: 12, weight: .medium, design: .monospaced))
-                            .foregroundColor(themeManager.textColor)
-                        Spacer()
+                            .font(.caption)
+
+                        if let url = URL(string: web.url) {
+                            Link(web.url, destination: url)
+                                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                                .foregroundColor(themeManager.accentColor)
+                                .lineLimit(1)
+                        } else {
+                            Text(web.url)
+                                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                                .foregroundColor(themeManager.textColor)
+                                .lineLimit(1)
+                        }
                     }
-                }
-
-                // Branch
-                if let branch = web.buildBranch {
-                    HStack(spacing: 8) {
-                        Text("Branch:")
-                            .foregroundColor(themeManager.textSoftColor)
-                        Text(branch)
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundColor(themeManager.textColor)
-                        Spacer()
+                    
+                    // Build
+                    if let commit = web.buildCommit {
+                        HStack(spacing: 8) {
+                            Text("Build:")
+                                .foregroundColor(themeManager.textSoftColor)
+                                .font(.caption)
+                            Text(commit.count > 7 ? String(commit.prefix(7)) : commit)
+                                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                                .foregroundColor(themeManager.textColor)
+                        }
                     }
-                }
-
-                // Deployed at
-                if let deployedAt = web.deployedAtUtc {
-                    HStack(spacing: 8) {
-                        Text("Deployed at (UTC):")
-                            .foregroundColor(themeManager.textSoftColor)
-                        Text(deployedAt)
-                            .font(.system(size: 12, weight: .regular, design: .monospaced))
-                            .foregroundColor(themeManager.textColor)
-                        Spacer()
+                    
+                    // Branch
+                    if let branch = web.buildBranch {
+                        HStack(spacing: 8) {
+                            Text("Branch:")
+                                .foregroundColor(themeManager.textSoftColor)
+                                .font(.caption)
+                            Text(branch)
+                                .font(.system(size: 11, weight: .regular, design: .monospaced))
+                                .foregroundColor(themeManager.textColor)
+                        }
                     }
-                }
-
-                // Version status badge (Latest / Out of date)
-                if let (label, color) = versionStatus(for: web, isProdSection: isProdSection) {
-                    HStack(spacing: 8) {
-                        Text("Version status:")
-                            .foregroundColor(themeManager.textSoftColor)
-                        Text(label)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(color)
-                        Spacer()
+                    
+                    // Version status badge (Latest / Out of date)
+                    if let (label, color) = versionStatus(for: web, isProdSection: isProdSection) {
+                        HStack(spacing: 8) {
+                            Text("Version:")
+                                .foregroundColor(themeManager.textSoftColor)
+                                .font(.caption)
+                            Text(label)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(color)
+                        }
                     }
                 }
             } else {
                 Text("No health data reported.")
-                    .font(.subheadline)
+                    .font(.caption)
                     .foregroundColor(themeManager.textSoftColor)
             }
         }
     }
+
 
     /// Decide what to show in the "Version status" badge.
     ///

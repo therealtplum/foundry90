@@ -465,9 +465,9 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     {
         Ok(count) => {
             if count > 0 {
-                Some("active".to_string())
+                Some("open".to_string())  // Normalize to "open" to match other asset classes
             } else {
-                Some("inactive".to_string())
+                Some("closed".to_string())  // Normalize to "closed" to match other asset classes
             }
         }
         Err(err) => {
