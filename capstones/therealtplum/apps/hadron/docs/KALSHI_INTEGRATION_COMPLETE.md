@@ -116,14 +116,13 @@ Recorder (persists to DB)
 ## 🔑 API Keys Configured
 
 **Production Keys:**
-- `hadron_1`: f31a6749-caa8-4a04-827d-6ef6b18d0314
-- `hadron_2`: 84797113-bcf7-42be-9b3b-d17d52fa1200
-- `hadron_3`: 0d3a6b9e-a2c9-4550-8a4d-9730f15eff40
-- `hadron_4`: 1aee637a-4f5a-4d1e-8f49-c2c7789710c3
+- Configured via environment variables: `KALSHI_API_KEY_1` through `KALSHI_API_KEY_10`
+- See `.env` file for actual key values (not committed to git)
 
 **Private Keys:**
 - Stored in `.kalshi_keys/hadron_*.pem` (gitignored)
 - Mounted in Docker container at `/app/.kalshi_keys/`
+- Paths configured via `KALSHI_PRIVATE_KEY_1_PATH` through `KALSHI_PRIVATE_KEY_10_PATH`
 
 ## 🐛 Known Issues
 

@@ -306,9 +306,19 @@ pub async fn refresh_kalshi_user_account_handler(
     info!("Refreshing account data for user: {}", user_id);
     
     // Call Python script to refresh account data
-    // Use environment variable or default path
-    let compose_file = env::var("DOCKER_COMPOSE_FILE")
-        .unwrap_or_else(|_| "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum/docker-compose.yml".to_string());
+    // Use environment variable or try to find docker-compose.yml relative to current working directory
+    let compose_file = env::var("DOCKER_COMPOSE_FILE").unwrap_or_else(|_| {
+        // Try to find docker-compose.yml in common locations
+        let current_dir = env::current_dir().ok();
+        if let Some(dir) = current_dir {
+            let compose_path = dir.join("docker-compose.yml");
+            if compose_path.exists() {
+                return compose_path.to_string_lossy().to_string();
+            }
+        }
+        // Fallback: use docker-compose.yml in current directory
+        "docker-compose.yml".to_string()
+    });
     
     let output = Command::new("docker")
         .args(&[

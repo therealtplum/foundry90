@@ -56,7 +56,7 @@
 
 1. **Run the App**
    ```bash
-   open /Users/thomasplummer/Library/Developer/Xcode/DerivedData/FMHubControl-ggadatjhclzhyraudiaeqzckgsqu/Build/Products/Debug/FMHubControl.app
+   open ~/Library/Developer/Xcode/DerivedData/FMHubControl-*/Build/Products/Debug/FMHubControl.app
    ```
 
 2. **Test Kalshi Views**

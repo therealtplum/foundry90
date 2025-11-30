@@ -50,16 +50,14 @@
 ## 📋 Current Implementation Details
 
 ### API Keys Configured
-- `hadron_1`: f31a6749-caa8-4a04-827d-6ef6b18d0314
-- `hadron_2`: 84797113-bcf7-42be-9b3b-d17d52fa1200
-- `hadron_3`: 0d3a6b9e-a2c9-4550-8a4d-9730f15eff40
-- `hadron_4`: 1aee637a-4f5a-4d1e-8f49-c2c7789710c3
-- `foundry90`: (existing, in `.env`)
+- Configured via environment variables in `.env` file (not committed to git)
+- Supports up to 10 API keys: `KALSHI_API_KEY_1` through `KALSHI_API_KEY_10`
+- Each key requires a corresponding private key path: `KALSHI_PRIVATE_KEY_1_PATH` through `KALSHI_PRIVATE_KEY_10_PATH`
 
 ### Environment Variables Needed
 ```bash
-# For each key (1-4):
-KALSHI_API_KEY_1=f31a6749-caa8-4a04-827d-6ef6b18d0314
+# For each key (1-10):
+KALSHI_API_KEY_1=<your_api_key_here>
 KALSHI_PRIVATE_KEY_1_PATH=.kalshi_keys/hadron_1.pem
 
 # Optional: Override WebSocket URL
