@@ -4,6 +4,7 @@ struct SystemHealth: Codable {
     let api: String
     let db: String
     let redis: String
+    let marketStatus: String?
     let lastEtlRunUtc: String?
     let etlStatus: String
     let recentErrors: Int
@@ -16,6 +17,7 @@ struct SystemHealth: Codable {
         case api
         case db
         case redis
+        case marketStatus = "market_status"
         case lastEtlRunUtc = "last_etl_run_utc"
         case etlStatus = "etl_status"
         case recentErrors = "recent_errors"

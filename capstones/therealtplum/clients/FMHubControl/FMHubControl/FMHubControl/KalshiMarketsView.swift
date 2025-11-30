@@ -15,6 +15,12 @@ class KalshiMarketsViewModel: ObservableObject {
     @Published var userId: String? = nil
     @Published var account: KalshiUserAccount? = nil
     
+    // Market status
+    @Published var marketStatus: MarketStatus?
+    @Published var marketStatusLoading = false
+    @Published var marketStatusError: String?
+    @Published var autoRefreshMarketStatus = true
+    
     // Login form fields
     @Published var loginApiKey: String = ""
     @Published var loginApiSecret: String = ""
@@ -23,11 +29,13 @@ class KalshiMarketsViewModel: ObservableObject {
     @Published var loginErrorMessage: String?
     
     private let service: KalshiServiceType
+    private let marketStatusService: MarketStatusServiceType
     private var currentOffset = 0
     private let pageSize = 50
     
-    init(service: KalshiServiceType? = nil) {
+    init(service: KalshiServiceType? = nil, marketStatusService: MarketStatusServiceType? = nil) {
         self.service = service ?? KalshiService()
+        self.marketStatusService = marketStatusService ?? MarketStatusService()
         // For local development, use "default" user ID from .env config
         // Skip login form and use local configuration
         self.userId = "default"
@@ -35,6 +43,8 @@ class KalshiMarketsViewModel: ObservableObject {
         Task {
             await loadAccount()
             await loadMarkets()
+            await loadMarketStatus()
+            startMarketStatusAutoRefresh()
         }
     }
     
@@ -143,6 +153,31 @@ class KalshiMarketsViewModel: ObservableObject {
     func refresh() async {
         await loadMarkets()
     }
+    
+    func loadMarketStatus() async {
+        marketStatusLoading = true
+        marketStatusError = nil
+        
+        do {
+            let status = try await marketStatusService.fetchMarketStatus()
+            self.marketStatus = status
+        } catch {
+            self.marketStatus = nil
+            self.marketStatusError = error.localizedDescription
+        }
+        
+        marketStatusLoading = false
+    }
+    
+    private func startMarketStatusAutoRefresh() {
+        Task { [weak self] in
+            while let self = self {
+                try? await Task.sleep(nanoseconds: 60 * 1_000_000_000) // 60 seconds
+                guard self.autoRefreshMarketStatus else { continue }
+                await self.loadMarketStatus()
+            }
+        }
+    }
 }
 
 struct KalshiMarketsView: View {
@@ -227,6 +262,45 @@ struct KalshiMarketsView: View {
     
     private var marketsView: some View {
         VStack(spacing: 0) {
+            // Market Status Section
+            if let status = viewModel.marketStatus {
+                HStack(spacing: 12) {
+                    Circle()
+                        .fill(status.isOpen ? Color.green : Color.red)
+                        .frame(width: 12, height: 12)
+                        .shadow(
+                            color: status.isOpen ? Color.green.opacity(0.5) : Color.red.opacity(0.5),
+                            radius: 4
+                        )
+                    
+                    Text(status.statusDisplay)
+                        .font(.system(size: 14, weight: .semibold))
+                    
+                    if let exchangeStatus = status.primaryExchangeStatus {
+                        Text("• NYSE/NASDAQ: \(exchangeStatus.capitalized)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+            } else if viewModel.marketStatusLoading {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.small)
+                    Text("Loading market status...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                .background(Color(NSColor.controlBackgroundColor))
+            }
+            
+            Divider()
+            
             // Header with account info
             HStack {
                 if let account = viewModel.account {

@@ -47,6 +47,9 @@ struct SystemHealthView: View {
                     statusTile(title: "Redis", status: viewModel.health?.redis ?? "unknown")
                     statusTile(title: "Web (local)", status: viewModel.health?.webLocal?.status ?? "unknown")
                     statusTile(title: "Web (prod)", status: viewModel.health?.webProd?.status ?? "unknown")
+                    if let marketStatus = viewModel.health?.marketStatus {
+                        marketStatusTile(status: marketStatus)
+                    }
                 }
             }
             
@@ -86,6 +89,37 @@ struct SystemHealthView: View {
                     .shadow(color: isUp ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 4)
 
                 Text(isUp ? "Up" : "Down")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(themeManager.textColor)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(themeManager.panelBorder, lineWidth: 1)
+        )
+        .cornerRadius(16)
+    }
+    
+    private func marketStatusTile(status: String) -> some View {
+        let normalized = status.lowercased()
+        let isOpen = normalized == "open" || normalized == "extended-hours"
+        let displayText = normalized == "extended-hours" ? "Extended" : (isOpen ? "Open" : "Closed")
+
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("MARKETS")
+                .font(.caption)
+                .foregroundColor(themeManager.textSoftColor)
+
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                    .frame(width: 10, height: 10)
+                    .shadow(color: isOpen ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 4)
+
+                Text(displayText)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(themeManager.textColor)
             }

@@ -18,6 +18,7 @@ pub struct SystemHealth {
     pub api: String,
     pub db: String,
     pub redis: String,
+    pub market_status: Option<String>, // "open" | "closed" | "extended-hours"
     pub last_etl_run_utc: Option<String>,
     pub etl_status: String,
     pub recent_errors: i32,
@@ -402,6 +403,26 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     // Regression test results
     let regression_test = get_regression_test_results().await;
 
+    // Market status
+    let market_status: Option<String> = match sqlx::query_scalar::<_, Option<String>>(
+        r#"
+        SELECT market
+        FROM market_status
+        ORDER BY server_time DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await
+    {
+        Ok(Some(status)) => status,
+        Ok(None) => None,
+        Err(err) => {
+            warn!("Failed to fetch market status: {err}");
+            None
+        }
+    };
+
     // Should we hit Vercel?
     let skip_vercel = env::var("SKIP_VERCEL_COMPARE")
         .map(|v| v == "true" || v == "1")
@@ -429,6 +450,7 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
         api,
         db: db_status,
         redis: redis_status,
+        market_status,
         last_etl_run_utc,
         etl_status,
         recent_errors,
