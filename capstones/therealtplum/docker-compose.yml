@@ -54,6 +54,9 @@ services:
 
       # Allow you to bypass Vercel comparison if needed
       SKIP_VERCEL_COMPARE: ${SKIP_VERCEL_COMPARE}
+
+      # FRED API
+      FRED_API_KEY: ${FRED_API_KEY}
     volumes:
       - ./logs:/app/logs:ro
     ports:
@@ -85,7 +88,7 @@ services:
       KALSHI_CREDENTIALS_ENCRYPTION_KEY: ${KALSHI_CREDENTIALS_ENCRYPTION_KEY}
     volumes:
       - ./apps/web/data:/export/web-data
-      - ./.env.kalshi_key:/app/.env.kalshi_key:ro
+      - ./.kalshi_keys/etl.pem:/app/.kalshi_keys/etl.pem:ro
     # Do nothing by default; we trigger jobs with `docker compose run --rm etl ...`
     command: ["sleep", "infinity"]
 

@@ -53,12 +53,17 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "FOUNDRY90_ROOT"
-            value = ""
-            isEnabled = "NO">
+            value = "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum"
+            isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "SAMPLE_TICKERS_LIMIT"
             value = "100"
+            isEnabled = "YES">
+         </EnvironmentVariable>
+         <EnvironmentVariable
+            key = "FRED_API_KEY"
+            value = "367b001ce103a99e1d0a06d4da71bff9"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

@@ -12,6 +12,7 @@ enum WidgetType: String, CaseIterable, Identifiable {
     case accountBalances = "Account Balances"
     case positions = "Positions"
     case watchList = "Watch List"
+    case fredReleases = "Economic Releases"
     
     var id: String { rawValue }
     
@@ -25,6 +26,8 @@ enum WidgetType: String, CaseIterable, Identifiable {
             return "briefcase"
         case .watchList:
             return "list.bullet"
+        case .fredReleases:
+            return "calendar.badge.clock"
         }
     }
     
@@ -32,7 +35,7 @@ enum WidgetType: String, CaseIterable, Identifiable {
         switch self {
         case .marketStatus, .accountBalances:
             return 1
-        case .positions, .watchList:
+        case .positions, .watchList, .fredReleases:
             return 2
         }
     }
@@ -42,12 +45,14 @@ struct WidgetConfig: Identifiable, Equatable {
     let id: String
     let type: WidgetType
     var columnSpan: Int // 1, 2, or 3 columns
+    var height: CGFloat? // Optional fixed height in points (nil = auto)
     var order: Int // Display order
     
-    init(id: String, type: WidgetType, columnSpan: Int? = nil, order: Int = 0) {
+    init(id: String, type: WidgetType, columnSpan: Int? = nil, height: CGFloat? = nil, order: Int = 0) {
         self.id = id
         self.type = type
         self.columnSpan = min(3, max(1, columnSpan ?? type.defaultColumnSpan))
+        self.height = height
         self.order = order
     }
 }
@@ -56,7 +61,8 @@ struct MarketsHubOverviewView: View {
     @EnvironmentObject var themeManager: ThemeManager
     @State private var widgets: [WidgetConfig] = [
         WidgetConfig(id: "1", type: .marketStatus, columnSpan: 1, order: 0),
-        WidgetConfig(id: "2", type: .accountBalances, columnSpan: 1, order: 1)
+        WidgetConfig(id: "2", type: .accountBalances, columnSpan: 1, order: 1),
+        WidgetConfig(id: "3", type: .fredReleases, columnSpan: 2, order: 2)
     ]
     @State private var showAddMenu = false
     @State private var draggedWidgetId: String? = nil
@@ -64,6 +70,10 @@ struct MarketsHubOverviewView: View {
     @State private var dropBeforeOrder: Int? = nil
     @State private var dragOffset: CGSize = .zero
     @State private var widgetFrames: [String: CGRect] = [:]
+    @State private var resizingWidgetId: String? = nil
+    @State private var resizeStartHeight: CGFloat = 0
+    @State private var resizeStartY: CGFloat = 0
+    @State private var currentResizeHeight: CGFloat = 0
     
     private let columns = 3
     private let columnSpacing: CGFloat = 20
@@ -202,8 +212,11 @@ struct MarketsHubOverviewView: View {
                         .padding()
                         .background(themeManager.panelBackground)
                         .cornerRadius(12)
+                case .fredReleases:
+                    FredReleasesWidget()
                 }
             }
+            .frame(height: config.height)
             .opacity(isDragged ? 0.4 : 1.0)
             .overlay(
                 // Controls overlay - only show on hover
@@ -227,6 +240,19 @@ struct MarketsHubOverviewView: View {
                 },
                 alignment: .topTrailing
             )
+            .overlay(
+                // Bottom resize handle - always visible when hovering or resizing
+                Group {
+                    if (isHovered && !isDragged) || resizingWidgetId == config.id {
+                        VStack {
+                            Spacer()
+                            resizeHandle(for: config)
+                                .padding(.bottom, 4)
+                        }
+                    }
+                },
+                alignment: .bottom
+            )
             .background(
                 GeometryReader { geometry in
                     Color.clear
@@ -239,10 +265,15 @@ struct MarketsHubOverviewView: View {
             .gesture(
                 DragGesture(minimumDistance: 10)
                     .onChanged { value in
-                        if draggedWidgetId == nil {
-                            draggedWidgetId = config.id
+                        // Only allow dragging if not resizing
+                        if resizingWidgetId == nil {
+                            if draggedWidgetId == nil {
+                                draggedWidgetId = config.id
+                            }
+                            if draggedWidgetId == config.id {
+                                dragOffset = value.translation
+                            }
                         }
-                        dragOffset = value.translation
                     }
                     .onEnded { value in
                         if let draggedId = draggedWidgetId {
@@ -338,6 +369,51 @@ struct MarketsHubOverviewView: View {
         .help("Remove widget")
     }
     
+    private func resizeHandle(for config: WidgetConfig) -> some View {
+        let isResizing = resizingWidgetId == config.id
+        
+        return HStack {
+            Spacer()
+            
+            RoundedRectangle(cornerRadius: 2)
+                .fill(isResizing ? themeManager.accentColor : themeManager.textSoftColor.opacity(0.3))
+                .frame(width: 40, height: 4)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .contentShape(Rectangle())
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { value in
+                            if resizingWidgetId == nil {
+                                resizingWidgetId = config.id
+                                if let currentHeight = config.height {
+                                    resizeStartHeight = currentHeight
+                                } else {
+                                    // Get current widget height from frame
+                                    resizeStartHeight = widgetFrames[config.id]?.height ?? 300
+                                }
+                                resizeStartY = value.startLocation.y
+                            }
+                            
+                            if resizingWidgetId == config.id {
+                                let deltaY = value.translation.height
+                                let newHeight = max(200, resizeStartHeight + deltaY) // Minimum 200 points
+                                currentResizeHeight = newHeight
+                                updateWidgetHeight(id: config.id, height: newHeight)
+                            }
+                        }
+                        .onEnded { _ in
+                            resizingWidgetId = nil
+                            resizeStartHeight = 0
+                            resizeStartY = 0
+                            currentResizeHeight = 0
+                        }
+                )
+            
+            Spacer()
+        }
+    }
+    
     private func addWidget(type: WidgetType) {
         let newOrder = widgets.isEmpty ? 0 : (widgets.map { $0.order }.max() ?? 0) + 1
         let newId = "widget-\(Date().timeIntervalSince1970)-\(UUID().uuidString.prefix(8))"
@@ -352,6 +428,12 @@ struct MarketsHubOverviewView: View {
         guard newSpan >= 1 && newSpan <= 3 else { return }
         if let index = widgets.firstIndex(where: { $0.id == id }) {
             widgets[index].columnSpan = newSpan
+        }
+    }
+    
+    private func updateWidgetHeight(id: String, height: CGFloat) {
+        if let index = widgets.firstIndex(where: { $0.id == id }) {
+            widgets[index].height = height
         }
     }
     
@@ -447,3 +529,4 @@ struct WidgetGridLayout<Content: View>: View {
         return rows
     }
 }
+

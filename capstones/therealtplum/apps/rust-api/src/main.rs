@@ -19,6 +19,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 mod system_health;
 mod kalshi;
+mod fred;
 
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
 use deadpool_redis::redis::AsyncCommands;
@@ -238,7 +239,35 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::layer())
         .init();
 
-    dotenvy::dotenv().ok();
+    // Try to load .env from project root (parent directory)
+    // First try current directory, then parent directory
+    let mut env_loaded = dotenvy::dotenv().is_ok();
+    if !env_loaded {
+        // If not found in current dir, try parent directory (project root)
+        let parent_env = std::path::Path::new("../.env");
+        let grandparent_env = std::path::Path::new("../../.env");
+        if parent_env.exists() {
+            match dotenvy::from_path(parent_env) {
+                Ok(_) => {
+                    info!("Loaded .env from ../.env");
+                    env_loaded = true;
+                }
+                Err(e) => info!("Failed to load .env from ../.env: {}", e),
+            }
+        }
+        if !env_loaded && grandparent_env.exists() {
+            match dotenvy::from_path(grandparent_env) {
+                Ok(_) => {
+                    info!("Loaded .env from ../../.env");
+                    env_loaded = true;
+                }
+                Err(e) => info!("Failed to load .env from ../../.env: {}", e),
+            }
+        }
+        if !env_loaded {
+            info!("No .env file found in current, parent, or grandparent directory");
+        }
+    }
 
     // Redis
     let redis_url = env::var("REDIS_URL")
@@ -288,12 +317,15 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
+        .route("/market/status", get(get_market_status_handler))
         // Kalshi endpoints
         .route("/kalshi/markets", get(kalshi::list_kalshi_markets_handler))
         .route("/kalshi/markets/{ticker}", get(kalshi::get_kalshi_market_handler))
         .route("/kalshi/users/{user_id}/account", get(kalshi::get_kalshi_user_account_handler))
         .route("/kalshi/users/{user_id}/balance", get(kalshi::get_kalshi_user_balance_handler))
         .route("/kalshi/users/{user_id}/positions", get(kalshi::get_kalshi_user_positions_handler))
+        // FRED endpoints
+        .route("/fred/releases/upcoming", get(fred::get_upcoming_releases_handler))
         .with_state(state)
         .layer(cors);
 
@@ -823,6 +855,7 @@ async fn get_focus_ticker_strip(
 }
 
 /// Market status DTO
+/// Note: Field names match database columns (snake_case) and Swift expects snake_case in JSON
 #[derive(Debug, Serialize, FromRow)]
 struct MarketStatusDto {
     server_time: DateTime<Utc>,
