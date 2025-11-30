@@ -10,9 +10,9 @@ class KalshiAccountViewModel: ObservableObject {
     private let service: KalshiServiceType
     private let userId: String
     
-    init(userId: String, service: KalshiServiceType = KalshiService()) {
+    init(userId: String, service: KalshiServiceType? = nil) {
         self.userId = userId
-        self.service = service
+        self.service = service ?? KalshiService()
     }
     
     func loadAccount() async {

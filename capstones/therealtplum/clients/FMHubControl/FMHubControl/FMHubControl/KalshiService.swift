@@ -16,7 +16,9 @@ protocol KalshiServiceType {
 struct KalshiService: KalshiServiceType {
     let baseURL: URL
     
-    init(baseURL: URL = URL(string: "http://127.0.0.1:3000")!) {
+    static let defaultBaseURL = URL(string: "http://127.0.0.1:3000")!
+    
+    init(baseURL: URL = KalshiService.defaultBaseURL) {
         self.baseURL = baseURL
     }
     
