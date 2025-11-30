@@ -18,7 +18,11 @@ pub struct SystemHealth {
     pub api: String,
     pub db: String,
     pub redis: String,
-    pub market_status: Option<String>, // "open" | "closed" | "extended-hours"
+    pub useq_status: Option<String>,    // "open" | "closed" | "extended-hours"
+    pub usopt_status: Option<String>,   // "open" | "closed"
+    pub fx_status: Option<String>,      // "open" | "closed"
+    pub crypto_status: Option<String>,  // "open" | "closed"
+    pub kalshi_status: Option<String>,  // "active" | "inactive" (based on active markets)
     pub last_etl_run_utc: Option<String>,
     pub etl_status: String,
     pub recent_errors: i32,
@@ -403,10 +407,15 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     // Regression test results
     let regression_test = get_regression_test_results().await;
 
-    // Market status
-    let market_status: Option<String> = match sqlx::query_scalar::<_, Option<String>>(
+    // Market statuses for different asset classes
+    use sqlx::Row;
+    let market_status_row = sqlx::query(
         r#"
-        SELECT market
+        SELECT 
+            exchange_nyse,
+            exchange_nasdaq,
+            currency_fx,
+            currency_crypto
         FROM market_status
         ORDER BY server_time DESC
         LIMIT 1
@@ -414,11 +423,55 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
     )
     .fetch_optional(&state.db_pool)
     .await
+    .ok()
+    .flatten();
+    
+    // Extract individual asset class statuses
+    let useq_status = market_status_row.as_ref()
+        .and_then(|row| {
+            row.try_get::<Option<String>, _>("exchange_nyse").ok()
+                .flatten()
+                .or_else(|| row.try_get::<Option<String>, _>("exchange_nasdaq").ok().flatten())
+        })
+        .map(|s| s.to_lowercase());
+    
+    let usopt_status = market_status_row.as_ref()
+        .and_then(|row| {
+            row.try_get::<Option<String>, _>("exchange_nyse").ok()
+                .flatten()
+                .or_else(|| row.try_get::<Option<String>, _>("exchange_nasdaq").ok().flatten())
+        })
+        .map(|s| s.to_lowercase());
+    
+    let fx_status = market_status_row.as_ref()
+        .and_then(|row| row.try_get::<Option<String>, _>("currency_fx").ok().flatten())
+        .map(|s| s.to_lowercase());
+    
+    let crypto_status = market_status_row.as_ref()
+        .and_then(|row| row.try_get::<Option<String>, _>("currency_crypto").ok().flatten())
+        .map(|s| s.to_lowercase());
+    
+    // Kalshi status: check if there are active markets
+    let kalshi_status: Option<String> = match sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT COUNT(*)
+        FROM instruments
+        WHERE primary_source = 'kalshi'
+          AND status = 'active'
+        "#,
+    )
+    .fetch_one(&state.db_pool)
+    .await
     {
-        Ok(Some(status)) => status,
-        Ok(None) => None,
+        Ok(count) => {
+            if count > 0 {
+                Some("active".to_string())
+            } else {
+                Some("inactive".to_string())
+            }
+        }
         Err(err) => {
-            warn!("Failed to fetch market status: {err}");
+            warn!("Failed to fetch Kalshi market count: {err}");
             None
         }
     };
@@ -450,7 +503,11 @@ pub async fn get_system_health(State(state): State<AppState>) -> Json<SystemHeal
         api,
         db: db_status,
         redis: redis_status,
-        market_status,
+        useq_status,
+        usopt_status,
+        fx_status,
+        crypto_status,
+        kalshi_status,
         last_etl_run_utc,
         etl_status,
         recent_errors,

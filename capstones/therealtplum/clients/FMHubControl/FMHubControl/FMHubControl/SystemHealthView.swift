@@ -47,8 +47,20 @@ struct SystemHealthView: View {
                     statusTile(title: "Redis", status: viewModel.health?.redis ?? "unknown")
                     statusTile(title: "Web (local)", status: viewModel.health?.webLocal?.status ?? "unknown")
                     statusTile(title: "Web (prod)", status: viewModel.health?.webProd?.status ?? "unknown")
-                    if let marketStatus = viewModel.health?.marketStatus {
-                        marketStatusTile(status: marketStatus)
+                    if let useq = viewModel.health?.useqStatus {
+                        assetClassStatusTile(title: "USEQ", status: useq)
+                    }
+                    if let usopt = viewModel.health?.usoptStatus {
+                        assetClassStatusTile(title: "USOPT", status: usopt)
+                    }
+                    if let fx = viewModel.health?.fxStatus {
+                        assetClassStatusTile(title: "FX", status: fx)
+                    }
+                    if let crypto = viewModel.health?.cryptoStatus {
+                        assetClassStatusTile(title: "CRYPTO", status: crypto)
+                    }
+                    if let kalshi = viewModel.health?.kalshiStatus {
+                        assetClassStatusTile(title: "KALSHI", status: kalshi)
                     }
                 }
             }
@@ -103,13 +115,21 @@ struct SystemHealthView: View {
         .cornerRadius(16)
     }
     
-    private func marketStatusTile(status: String) -> some View {
+    private func assetClassStatusTile(title: String, status: String) -> some View {
         let normalized = status.lowercased()
-        let isOpen = normalized == "open" || normalized == "extended-hours"
-        let displayText = normalized == "extended-hours" ? "Extended" : (isOpen ? "Open" : "Closed")
+        let isOpen: Bool
+        let displayText: String
+        
+        if title == "KALSHI" {
+            isOpen = normalized == "active"
+            displayText = normalized == "active" ? "Active" : "Inactive"
+        } else {
+            isOpen = normalized == "open" || normalized == "extended-hours"
+            displayText = normalized == "extended-hours" ? "Extended" : (isOpen ? "Open" : "Closed")
+        }
 
         return VStack(alignment: .leading, spacing: 8) {
-            Text("MARKETS")
+            Text(title)
                 .font(.caption)
                 .foregroundColor(themeManager.textSoftColor)
 

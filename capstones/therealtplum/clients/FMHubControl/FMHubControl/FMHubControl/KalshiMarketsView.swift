@@ -276,7 +276,7 @@ struct KalshiMarketsView: View {
         VStack(spacing: 0) {
             // Market Status Section (Traditional + Kalshi)
             HStack(spacing: 16) {
-                // Traditional Market Status
+                // Traditional Market Status (NYSE/NASDAQ)
                 if let status = viewModel.marketStatus {
                     HStack(spacing: 8) {
                         Circle()
@@ -287,14 +287,8 @@ struct KalshiMarketsView: View {
                                 radius: 3
                             )
                         
-                        Text(status.statusDisplay)
+                        Text("NYSE/NASDAQ: \(status.statusDisplay)")
                             .font(.system(size: 13, weight: .semibold))
-                        
-                        if let exchangeStatus = status.primaryExchangeStatus {
-                            Text("• \(exchangeStatus.capitalized)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
                     }
                 } else if viewModel.marketStatusLoading {
                     HStack(spacing: 6) {
