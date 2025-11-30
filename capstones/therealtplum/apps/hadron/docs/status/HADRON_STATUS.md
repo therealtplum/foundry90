@@ -2,8 +2,8 @@
 ## Status, Implementation Notes, and Roadmap
 
 **Last Updated:** November 29, 2025  
-**Branch:** `hadron-v1`  
-**Phase:** Phase 1 Complete - Core Pipeline MVP (WebSocket fixes + Reference Data added)
+**Branch:** `hadron-v2` (merged from `hadron-v1`)  
+**Phase:** Phase 1 Complete - Core Pipeline MVP + Kalshi Integration
 
 ---
 

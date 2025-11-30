@@ -64,7 +64,7 @@ The Kalshi integration has been successfully implemented in `hadron-v2`, replaci
 - Private keys mounted as read-only volume in container
 
 **Documentation:**
-- `KALSHI_PROTOCOL.md` - Complete protocol reference
+- `KALSHI_WEBSOCKET_PROTOCOL.md` - Complete protocol reference
 - `KALSHI_INTEGRATION_PLAN.md` - 7-day implementation plan
 - `KALSHI_IMPLEMENTATION_STATUS.md` - Status tracking
 - `KALSHI_REQUIREMENTS.md` - Requirements checklist
