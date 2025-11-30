@@ -92,12 +92,12 @@ struct MarketsPlaceholderView: View {
                 HStack(spacing: 16) {
                     // Green/Red indicator circle
                     Circle()
-                        .fill(status.isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                        .fill(status.isOpen ? Color.green : Color.red)
                         .frame(width: 16, height: 16)
                         .shadow(
                             color: status.isOpen 
-                                ? themeManager.statusUpColor.opacity(0.5) 
-                                : themeManager.statusDownColor.opacity(0.5),
+                                ? Color.green.opacity(0.5) 
+                                : Color.red.opacity(0.5),
                             radius: 6
                         )
                     
@@ -248,12 +248,12 @@ struct MarketsPlaceholderView: View {
     private func assetClassRow(name: String, isOpen: Bool, detail: String?) -> some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                .fill(isOpen ? Color.green : Color.red)
                 .frame(width: 10, height: 10)
                 .shadow(
                     color: isOpen
-                        ? themeManager.statusUpColor.opacity(0.5)
-                        : themeManager.statusDownColor.opacity(0.5),
+                        ? Color.green.opacity(0.5)
+                        : Color.red.opacity(0.5),
                     radius: 4
                 )
             

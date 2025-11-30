@@ -98,9 +98,9 @@ struct SystemHealthView: View {
 
             HStack(spacing: 8) {
                 Circle()
-                    .fill(isUp ? themeManager.statusUpColor : themeManager.statusDownColor)
+                    .fill(isUp ? Color.green : Color.red)
                     .frame(width: 10, height: 10)
-                    .shadow(color: isUp ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 4)
+                    .shadow(color: isUp ? Color.green.opacity(0.5) : Color.clear, radius: 4)
 
                 Text(isUp ? "Up" : "Down")
                     .font(.system(size: 15, weight: .medium))
@@ -129,9 +129,9 @@ struct SystemHealthView: View {
 
             HStack(spacing: 8) {
                 Circle()
-                    .fill(isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                    .fill(isOpen ? Color.green : Color.red)
                     .frame(width: 10, height: 10)
-                    .shadow(color: isOpen ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 4)
+                    .shadow(color: isOpen ? Color.green.opacity(0.5) : Color.clear, radius: 4)
 
                 Text(displayText)
                     .font(.system(size: 15, weight: .medium))
