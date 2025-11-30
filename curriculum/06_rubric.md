@@ -177,4 +177,12 @@ The target by Day 90:
 - **DevOps: 2–3**  
 - **Observability: 2–3**  
 - **Architecture: 3**  
-- **Hygiene: 3**  
+- **Hygiene: 3**
+
+---
+
+## Related Documentation
+
+- **Weekly Exercises:** Use [`03_weekly_exercises.md`](./03_weekly_exercises.md) to guide what to build each week
+- **Capstone Guide:** See [`07_capstone_guide.md`](./07_capstone_guide.md) for final project expectations
+- **Overview:** Review [`01_overview_and_syllabus.md`](./01_overview_and_syllabus.md) for program structure  

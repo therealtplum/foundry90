@@ -23,7 +23,7 @@ struct RootView: View {
                     Label("Ops", systemImage: "terminal")
                 }
 
-            MarketsPlaceholderView()
+            KalshiMarketsView()
                 .tabItem {
                     Label("Markets", systemImage: "chart.xyaxis.line")
                 }

@@ -18,6 +18,9 @@ final class OperationsViewModel: ObservableObject {
 
     /// Root of the capstone repo. Resolved once at init.
     private let repoRoot: URL
+    
+    /// Track the current process to ensure proper cleanup
+    private var currentProcess: Process?
 
     init() {
         self.repoRoot = OperationsViewModel.resolveRepoRoot()
@@ -40,11 +43,15 @@ final class OperationsViewModel: ObservableObject {
         }
 
         // 2. Try common locations relative to home directory
+        // Note: These are generic fallback paths. Users should set FOUNDRY90_ROOT env var instead.
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
         let commonPaths = [
             "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum",
             "\(homeDir)/foundry90/capstones/therealtplum",
+            "\(homeDir)/Documents/foundry90/capstones/therealtplum",
             "\(homeDir)/projects/foundry90/capstones/therealtplum",
+            "\(homeDir)/code/foundry90/capstones/therealtplum",
+            "\(homeDir)/Documents/projects/foundry90/capstones/therealtplum",
         ]
         
         for path in commonPaths {
@@ -61,15 +68,23 @@ final class OperationsViewModel: ObservableObject {
             return cwdURL
         }
         
-        // 4. Last resort: return the default expected path
-        let defaultPath = "\(homeDir)/Documents/python/projects/foundry90/capstones/therealtplum"
+        // 4. Last resort: return a generic path (user should set FOUNDRY90_ROOT env var)
+        // This will likely fail, but provides a clear error message
+        let defaultPath = "\(homeDir)/foundry90/capstones/therealtplum"
         return URL(fileURLWithPath: defaultPath, isDirectory: true)
     }
 
     func run(_ op: OperationType) {
         // Called from main thread via SwiftUI button
-        guard !isRunning else { return }
+        guard !isRunning else {
+            // Log that we're already running to help debug
+            logText.append("[\(timestamp())] Operation already in progress, ignoring \(op.rawValue)\n")
+            return
+        }
 
+        // Clean up any previous process reference
+        currentProcess = nil
+        
         isRunning = true
         currentOperation = op
         logText = "[\(timestamp())] Running \(op.rawValue)...\n"
@@ -124,6 +139,9 @@ final class OperationsViewModel: ObservableObject {
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = [scriptURL.path]
         process.currentDirectoryURL = repoRoot
+        
+        // Store reference to process for cleanup
+        currentProcess = process
 
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -134,8 +152,15 @@ final class OperationsViewModel: ObservableObject {
         // Stream output into the log as it arrives
         handle.readabilityHandler = { [weak self] fh in
             let data = fh.availableData
-            guard !data.isEmpty,
-                  let chunk = String(data: data, encoding: .utf8) else { return }
+            guard !data.isEmpty else {
+                // EOF - clean up handler
+                fh.readabilityHandler = nil
+                return
+            }
+            
+            guard let chunk = String(data: data, encoding: .utf8) else {
+                return
+            }
 
             Task { @MainActor in
                 self?.logText.append(chunk)
@@ -144,11 +169,26 @@ final class OperationsViewModel: ObservableObject {
 
         // When the process exits, update UI state
         process.terminationHandler = { [weak self] proc in
+            // Stop reading from pipe
             handle.readabilityHandler = nil
+            
+            // Drain any remaining data from the pipe synchronously
+            let remainingData = handle.availableData
+            if !remainingData.isEmpty,
+               let remainingChunk = String(data: remainingData, encoding: .utf8) {
+                Task { @MainActor in
+                    self?.logText.append(remainingChunk)
+                }
+            }
+            
+            // Close the file handle
+            try? handle.close()
 
             Task { @MainActor in
                 guard let self else { return }
+                // Ensure state is reset
                 self.isRunning = false
+                self.currentProcess = nil
                 let status = proc.terminationStatus
                 if status == 0 {
                     self.logText.append(
@@ -169,6 +209,7 @@ final class OperationsViewModel: ObservableObject {
             handle.readabilityHandler = nil
             Task { @MainActor in
                 self.isRunning = false
+                self.currentProcess = nil
                 self.logText.append(
                     "\n[\(self.timestamp())] Failed to start process: \(error.localizedDescription)\n"
                 )

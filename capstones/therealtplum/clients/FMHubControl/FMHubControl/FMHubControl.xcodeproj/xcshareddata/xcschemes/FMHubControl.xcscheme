@@ -53,8 +53,8 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "FOUNDRY90_ROOT"
-            value = "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum"
-            isEnabled = "YES">
+            value = ""
+            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "SAMPLE_TICKERS_LIMIT"

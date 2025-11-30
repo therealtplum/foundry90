@@ -17,14 +17,17 @@ struct OperationsView: View {
             themeManager.backgroundGradient
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                headerRow
-                HStack(spacing: 20) {
-                    controlPanel
-                    logPanel
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerRow
+                    HStack(spacing: 20) {
+                        controlPanel
+                        logPanel
+                    }
                 }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(24)
         }
         .foregroundColor(themeManager.textColor)
         .task {
@@ -89,9 +92,9 @@ struct OperationsView: View {
 
         return HStack(spacing: 4) {
             Circle()
-                .fill(isUp ? themeManager.statusUpColor : themeManager.statusDownColor)
+                .fill(isUp ? Color.green : Color.red)
                 .frame(width: 8, height: 8)
-                .shadow(color: isUp ? themeManager.statusUpColor.opacity(0.5) : Color.clear, radius: 3)
+                .shadow(color: isUp ? Color.green.opacity(0.5) : Color.clear, radius: 3)
 
             Text(label)
                 .font(.caption2)

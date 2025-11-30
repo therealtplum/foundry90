@@ -109,4 +109,14 @@ Optionally:
   - Why this shape of services?
   - What you would do differently with more time.
 
-This is your project – it doesn’t need to look like anyone else’s. Foundry90 is about making your own engineering decisions and learning from them.
+This is your project – it doesn't need to look like anyone else's. Foundry90 is about making your own engineering decisions and learning from them.
+
+---
+
+## Related Documentation
+
+- **Weekly Exercises:** Follow [`03_weekly_exercises.md`](./03_weekly_exercises.md) to build your capstone incrementally
+- **Architecture:** See [`05_architecture.md`](./05_architecture.md) for system design guidance
+- **Repo Structure:** See [`04_repo_template.md`](./04_repo_template.md) for organization
+- **Rubric:** Use [`06_rubric.md`](./06_rubric.md) to evaluate your progress
+- **Starter Kit:** Get started with [`../starter-kit/README.md`](../starter-kit/README.md)

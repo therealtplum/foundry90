@@ -19,6 +19,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 mod system_health;
 mod auth;
+mod kalshi;
 
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
 use deadpool_redis::redis::AsyncCommands;
@@ -291,11 +292,19 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
+        .route("/market/status", get(get_market_status_handler))
+        // Kalshi API endpoints
+        .route("/kalshi/markets", get(kalshi::list_kalshi_markets_handler))
+        .route("/kalshi/markets/{ticker}", get(kalshi::get_kalshi_market_handler))
+        .route("/kalshi/users/{user_id}/account", get(kalshi::get_kalshi_user_account_handler))
+        .route("/kalshi/users/{user_id}/account/refresh", get(kalshi::refresh_kalshi_user_account_handler))
+        .route("/kalshi/users/{user_id}/balance", get(kalshi::get_kalshi_user_balance_handler))
+        .route("/kalshi/users/{user_id}/positions", get(kalshi::get_kalshi_user_positions_handler))
         // Optional: Add auth middleware here if you want to protect these routes
         // Example: .layer(middleware::from_fn(auth::validate_jwt))  // Requires auth
         // Example: .layer(middleware::from_fn(auth::optional_validate_jwt))  // Optional auth
-        .layer(cors)
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);
 
     let port: u16 = env::var("PORT")
         .ok()
@@ -846,6 +855,62 @@ async fn get_focus_ticker_strip(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(Vec::<FocusTickerStripRow>::new()),
+            )
+        }
+    }
+}
+
+/// Market status DTO
+#[derive(Debug, Serialize, FromRow)]
+struct MarketStatusDto {
+    server_time: DateTime<Utc>,
+    market: String,
+    after_hours: bool,
+    early_hours: bool,
+    exchange_nasdaq: Option<String>,
+    exchange_nyse: Option<String>,
+    exchange_otc: Option<String>,
+    currency_crypto: Option<String>,
+    currency_fx: Option<String>,
+    indices_groups: Option<serde_json::Value>,
+}
+
+/// Get current market status
+async fn get_market_status_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let result = sqlx::query_as::<_, MarketStatusDto>(
+        r#"
+        SELECT
+            server_time,
+            market,
+            after_hours,
+            early_hours,
+            exchange_nasdaq,
+            exchange_nyse,
+            exchange_otc,
+            currency_crypto,
+            currency_fx,
+            indices_groups
+        FROM market_status
+        ORDER BY server_time DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await;
+
+    match result {
+        Ok(Some(status)) => (StatusCode::OK, Json(json!(status))),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "no_market_status"})),
+        ),
+        Err(err) => {
+            error!("Failed to fetch market status: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "internal_error"})),
             )
         }
     }

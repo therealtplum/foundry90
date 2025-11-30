@@ -123,4 +123,12 @@ At this point, prioritize what you’re actually building:
   https://developer.apple.com/tutorials/swiftui
 - High-level system design articles (ByteByteGo and similar)
 
-Don’t try to read everything; read what unblocks the thing you’re currently building.
+Don't try to read everything; read what unblocks the thing you're currently building.
+
+---
+
+## Related Documentation
+
+- **Weekly Exercises:** See [`03_weekly_exercises.md`](./03_weekly_exercises.md) for what to build each week
+- **Glossary:** Check [`glossary.md`](./glossary.md) if you encounter unfamiliar terms
+- **Overview:** Review [`01_overview_and_syllabus.md`](./01_overview_and_syllabus.md) for program structure

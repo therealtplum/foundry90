@@ -71,3 +71,12 @@ You can modify this structure later, but this is a strong default.
 4. Edit Dockerfiles, `.env`, scripts, and database setup to match your system.
 
 This template provides scaffolding — your implementation is where the real Foundry90 work happens.
+
+---
+
+## Related Documentation
+
+- **Starter Kit:** See [`../starter-kit/README.md`](../starter-kit/README.md) for detailed setup instructions
+- **Monorepo Template:** See [`../starter-kit/monorepo_template/README.md`](../starter-kit/monorepo_template/README.md) for the full template guide
+- **Weekly Exercises:** Week 5 in [`03_weekly_exercises.md`](./03_weekly_exercises.md) covers monorepo setup
+- **Architecture:** See [`05_architecture.md`](./05_architecture.md) for how services communicate
