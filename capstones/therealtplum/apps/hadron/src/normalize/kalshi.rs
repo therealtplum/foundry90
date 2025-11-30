@@ -26,11 +26,24 @@ impl KalshiNormalizer {
     pub async fn normalize(&mut self, raw_event: &RawEvent) -> Result<Option<HadronTick>> {
         let payload = &raw_event.raw_payload;
 
-        // Get message type
+        // Get message type - Kalshi messages can have "type" at top level or in "msg"
         let msg_type = payload
             .get("type")
             .and_then(|v| v.as_str())
-            .context("Missing 'type' field in Kalshi message")?;
+            .or_else(|| {
+                // Try "msg" object
+                payload.get("msg")
+                    .and_then(|m| m.get("type"))
+                    .and_then(|v| v.as_str())
+            });
+
+        let msg_type = match msg_type {
+            Some(t) => t,
+            None => {
+                // Skip messages without type (might be control messages)
+                return Ok(None);
+            }
+        };
 
         match msg_type {
             "ticker" => self.normalize_ticker(raw_event, payload).await,
@@ -53,14 +66,17 @@ impl KalshiNormalizer {
 
     /// Normalize Kalshi ticker update
     /// Ticker format: {"type": "ticker", "data": {"market_ticker": "...", "bid": 45, "ask": 46, "last_price": 45, "volume": 1234}}
+    /// Or: {"type": "ticker", "msg": {"market_ticker": "...", "bid": 45, ...}}
     async fn normalize_ticker(
         &mut self,
         raw_event: &RawEvent,
         payload: &serde_json::Value,
     ) -> Result<Option<HadronTick>> {
+        // Kalshi messages can have data in "data" or "msg" field
         let data = payload
             .get("data")
-            .context("Missing 'data' field in Kalshi ticker message")?;
+            .or_else(|| payload.get("msg"))
+            .context("Missing 'data' or 'msg' field in Kalshi ticker message")?;
 
         let market_ticker = data
             .get("market_ticker")
@@ -124,7 +140,8 @@ impl KalshiNormalizer {
     ) -> Result<Option<HadronTick>> {
         let data = payload
             .get("data")
-            .context("Missing 'data' field in Kalshi trade message")?;
+            .or_else(|| payload.get("msg"))
+            .context("Missing 'data' or 'msg' field in Kalshi trade message")?;
 
         let market_ticker = data
             .get("market_ticker")
@@ -186,7 +203,8 @@ impl KalshiNormalizer {
     ) -> Result<Option<HadronTick>> {
         let data = payload
             .get("data")
-            .context("Missing 'data' field in Kalshi orderbook message")?;
+            .or_else(|| payload.get("msg"))
+            .context("Missing 'data' or 'msg' field in Kalshi orderbook message")?;
 
         let market_ticker = data
             .get("market_ticker")
