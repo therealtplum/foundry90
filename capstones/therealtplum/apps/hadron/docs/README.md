@@ -12,9 +12,6 @@ docs/
 │   ├── KALSHI_INTEGRATION_COMPLETE.md # Kalshi integration completion snapshot
 │   ├── KALSHI_NORMALIZATION_STATUS.md # Kalshi normalization implementation status
 │   ├── KALSHI_PARSER_PHASE1_COMPLETE.md # Phase 1 parser completion report
-│   └── archive/                      # Archived documents (historical reference)
-│       ├── KALSHI_NORMALIZATION_DESIGN.md # Original normalization design proposal
-│       └── MERGE_READINESS_ASSESSMENT.md # Hadron-v2 merge assessment (completed)
 ├── KALSHI_INTEGRATION_GUIDE.md        # Comprehensive Kalshi integration reference
 ├── KALSHI_WEBSOCKET_PROTOCOL.md       # Kalshi WebSocket protocol reference
 └── POLYGON_API_LIMITATIONS.md         # Polygon API plan details & limitations
@@ -38,12 +35,6 @@ These documents contain reference information that changes infrequently. Use the
   - Data limitations (delayed, REST-only endpoints)
   - Implementation notes
 
-### Architecture & Design
-- **`status/archive/KALSHI_NORMALIZATION_DESIGN.md`** - Original design proposal (archived, historical reference)
-  - Two-path approach (fast-path/slow-path)
-  - Database schema considerations
-  - Ticker parser design
-  - See `status/KALSHI_NORMALIZATION_STATUS.md` for current implementation status
 
 ### Comprehensive Guides
 - **`KALSHI_INTEGRATION_GUIDE.md`** - **PRIMARY KALSHI REFERENCE**
@@ -95,7 +86,6 @@ These documents track current status and progress. Updated regularly as features
 - **Primary Reference**: `KALSHI_INTEGRATION_GUIDE.md` - **START HERE**
 - **Protocol Reference**: `KALSHI_WEBSOCKET_PROTOCOL.md`
 - **Implementation Status**: `status/KALSHI_NORMALIZATION_STATUS.md` - **CURRENT STATUS**
-- **Design Reference**: `status/archive/KALSHI_NORMALIZATION_DESIGN.md` (historical)
 - **Status**: 
   - `status/HADRON_STATUS.md` (overall system)
   - `status/KALSHI_NORMALIZATION_STATUS.md` (normalization progress)
@@ -123,7 +113,6 @@ These documents track current status and progress. Updated regularly as features
 1. **Current state**: `status/HADRON_STATUS.md` - What's implemented
 2. **Kalshi roadmap**: `KALSHI_INTEGRATION_GUIDE.md` - Phase 2/3/4 plans
 3. **Normalization status**: `status/KALSHI_NORMALIZATION_STATUS.md` - Implementation progress
-4. **Design reference**: `status/archive/KALSHI_NORMALIZATION_DESIGN.md` - Original design (archived)
 
 ---
 
@@ -139,7 +128,6 @@ These documents track current status and progress. Updated regularly as features
 ### Low Frequency (Rarely Updated)
 - **`KALSHI_WEBSOCKET_PROTOCOL.md`** - Only updated if protocol changes
 - **`POLYGON_API_LIMITATIONS.md`** - Only updated if plan changes
-- **`status/archive/KALSHI_NORMALIZATION_DESIGN.md`** - Historical reference, archived
 - **`status/KALSHI_INTEGRATION_COMPLETE.md`** - Historical snapshot, not updated
 
 ---
@@ -157,7 +145,6 @@ These documents track current status and progress. Updated regularly as features
 - **`*_STATUS.md`** - Implementation status tracking (active progress)
 - **`*_COMPLETE.md`** - Completion summaries (historical snapshots)
 - **`*_PHASE*_COMPLETE.md`** - Phase completion reports
-- **`archive/`** - Archived documents (historical reference only)
 
 ---
 

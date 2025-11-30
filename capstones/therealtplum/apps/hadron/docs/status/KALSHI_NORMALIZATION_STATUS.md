@@ -7,7 +7,7 @@
 
 ## Overview
 
-This document tracks the implementation status of the Kalshi Instrument Normalization feature. The original design proposal was documented in the historical reference `KALSHI_NORMALIZATION_DESIGN.md` (moved to status/archive/).
+This document tracks the implementation status of the Kalshi Instrument Normalization feature.
 
 **Problem Statement:**
 Kalshi has millions of instruments with cryptic ticker names. We need to normalize these into human-readable display names with structured metadata.
@@ -181,7 +181,6 @@ Two-path approach with fast-path (Hadron real-time) and slow-path (Python ETL ba
 ### Documentation Files
 - `status/KALSHI_PARSER_PHASE1_COMPLETE.md` - Phase 1 completion report
 - `KALSHI_INTEGRATION_GUIDE.md` - Comprehensive Kalshi integration guide
-- `status/archive/KALSHI_NORMALIZATION_DESIGN.md` - Original design proposal (archived)
 
 ---
 
