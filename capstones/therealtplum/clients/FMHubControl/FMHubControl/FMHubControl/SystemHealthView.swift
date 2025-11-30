@@ -9,16 +9,18 @@ struct SystemHealthView: View {
             themeManager.backgroundGradient
                 .ignoresSafeArea()
 
-            VStack(alignment: .leading, spacing: 24) {
-                header
-                statusRow
-                webPanel
-                dbSchemaPanel
-                regressionPanel
-                etlPanel
-                Spacer()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    statusRow
+                    webPanel
+                    dbSchemaPanel
+                    regressionPanel
+                    etlPanel
+                }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(24)
         }
         .foregroundColor(themeManager.textColor)
     }
@@ -28,7 +30,7 @@ struct SystemHealthView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("System Health")
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .foregroundColor(themeManager.textColor)
             Text("FMHub stack status · local")
                 .font(.subheadline)

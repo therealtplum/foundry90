@@ -17,14 +17,17 @@ struct OperationsView: View {
             themeManager.backgroundGradient
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                headerRow
-                HStack(spacing: 20) {
-                    controlPanel
-                    logPanel
+            ScrollView {
+                VStack(spacing: 16) {
+                    headerRow
+                    HStack(spacing: 20) {
+                        controlPanel
+                        logPanel
+                    }
                 }
+                .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(24)
         }
         .foregroundColor(themeManager.textColor)
         .task {
