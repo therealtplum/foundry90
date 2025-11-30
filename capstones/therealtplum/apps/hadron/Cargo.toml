@@ -26,4 +26,10 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 futures-util = "0.3"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 tokio-stream = "0.1"
+# RSA-PSS signing for Kalshi authentication
+rsa = { version = "0.9", features = ["sha2"] }
+pkcs1 = "0.7"
+pkcs8 = "0.10"
+base64 = "0.22"
+rand = "0.8"
 

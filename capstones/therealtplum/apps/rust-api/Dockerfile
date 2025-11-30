@@ -16,10 +16,13 @@ RUN cargo build --release
 # -----------------------------
 # Runtime stage
 # -----------------------------
-FROM debian:bookworm-slim
+# Use debian:trixie-slim (testing) which has GLIBC 2.39+
+# Or use the same rust image for consistency
+FROM debian:trixie-slim
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
+    libc6 \
   && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
