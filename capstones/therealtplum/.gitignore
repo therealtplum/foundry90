@@ -23,5 +23,10 @@ __pycache__/
 .env.local
 .env.*.local
 
+# ---- Kalshi private keys ----
+.kalshi_keys/
+*.pem
+!**/node_modules/**/*.pem
+
 # ---- Personal reference docs (not for version control) ----
 docs/third_party_tools.md
