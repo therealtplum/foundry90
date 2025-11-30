@@ -436,10 +436,10 @@ Based on official Polygon/Massive.com documentation (https://massive.com/docs/we
 **Status:** ⚠️ Partially Implemented (Limited by Polygon)
 
 **API Keys Available:**
-- `hadron_1`: Pywc7AM4kmGqrSB4vE6uS1u4X_fVYNxN
-- `hadron_2`: qWziFpnehuZiYw5foeJ92OLoY2fhH24O
-- `hadron_3`: sxSrdtYCmdIm9Fo2_r2UHtovzgwKDWID
-- `hadron_4`: TLVZtRpKSpQKO7P27px54SlpSfx5TSvS
+- `hadron_1`: [REDACTED - Set via HADRON_API_KEY_1 environment variable]
+- `hadron_2`: [REDACTED - Set via HADRON_API_KEY_2 environment variable]
+- `hadron_3`: [REDACTED - Set via HADRON_API_KEY_3 environment variable]
+- `hadron_4`: [REDACTED - Set via HADRON_API_KEY_4 environment variable]
 
 **Important Limitation Discovered:**
 - ⚠️ **Polygon allows only 1 concurrent WebSocket connection per asset class**
