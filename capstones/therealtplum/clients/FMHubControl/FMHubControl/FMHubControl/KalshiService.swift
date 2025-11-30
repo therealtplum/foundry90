@@ -13,6 +13,7 @@ protocol KalshiServiceType {
 
 // MARK: - Default Service Implementation
 
+@MainActor
 struct KalshiService: KalshiServiceType {
     let baseURL: URL
     

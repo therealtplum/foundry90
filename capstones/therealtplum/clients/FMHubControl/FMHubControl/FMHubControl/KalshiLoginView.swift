@@ -12,8 +12,8 @@ class KalshiLoginViewModel: ObservableObject {
     
     private let service: KalshiServiceType
     
-    init(service: KalshiServiceType = KalshiService()) {
-        self.service = service
+    init(service: KalshiServiceType? = nil) {
+        self.service = service ?? KalshiService()
         // Check if credentials are already stored
         checkStoredCredentials()
     }

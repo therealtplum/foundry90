@@ -26,8 +26,8 @@ class KalshiMarketsViewModel: ObservableObject {
     private var currentOffset = 0
     private let pageSize = 50
     
-    init(service: KalshiServiceType = KalshiService()) {
-        self.service = service
+    init(service: KalshiServiceType? = nil) {
+        self.service = service ?? KalshiService()
         // For local development, use "default" user ID from .env config
         // Skip login form and use local configuration
         self.userId = "default"
