@@ -11,6 +11,8 @@ import SwiftUI
 struct MarketsPlaceholderView: View {
     @StateObject private var viewModel = MarketStatusViewModel()
     @EnvironmentObject var themeManager: ThemeManager
+    @State private var timeUntilOpen: String? = nil
+    @State private var countdownTimer: Timer?
 
     var body: some View {
         ZStack {
@@ -20,11 +22,29 @@ struct MarketsPlaceholderView: View {
             VStack(alignment: .leading, spacing: 24) {
                 header
                 marketStatusIndicator
+                assetClassStatuses
                 Spacer()
             }
             .padding(24)
         }
         .foregroundColor(themeManager.textColor)
+        .onAppear {
+            updateCountdown()
+            startCountdownTimer()
+        }
+        .onDisappear {
+            countdownTimer?.invalidate()
+        }
+    }
+    
+    private func updateCountdown() {
+        timeUntilOpen = MarketOpenTimeCalculator.timeUntilMarketOpen()
+    }
+    
+    private func startCountdownTimer() {
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            updateCountdown()
+        }
     }
     
     // MARK: - Header
@@ -101,6 +121,14 @@ struct MarketsPlaceholderView: View {
                                 .font(.caption)
                                 .foregroundColor(themeManager.textSoftColor)
                         }
+                        
+                        // Countdown timer when market is closed
+                        if !status.isOpen, let countdown = timeUntilOpen {
+                            Text(countdown)
+                                .font(.caption)
+                                .foregroundColor(themeManager.accentColor)
+                                .padding(.top, 4)
+                        }
                     }
                     
                     Spacer()
@@ -147,5 +175,93 @@ struct MarketsPlaceholderView: View {
                 .cornerRadius(16)
             }
         }
+    }
+    
+    // MARK: - Asset Class Statuses
+    
+    private var assetClassStatuses: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Asset Classes")
+                .font(.headline)
+                .foregroundColor(themeManager.textColor)
+            
+            if let status = viewModel.marketStatus {
+                VStack(spacing: 12) {
+                    assetClassRow(
+                        name: "Stocks",
+                        isOpen: status.isOpen,
+                        detail: status.primaryExchangeStatus?.capitalized
+                    )
+                    
+                    if let cryptoStatus = status.currencyCrypto {
+                        assetClassRow(
+                            name: "Crypto",
+                            isOpen: status.isCryptoOpen,
+                            detail: cryptoStatus.capitalized
+                        )
+                    }
+                    
+                    if let fxStatus = status.currencyFx {
+                        assetClassRow(
+                            name: "Forex",
+                            isOpen: status.isForexOpen,
+                            detail: fxStatus.capitalized
+                        )
+                    }
+                    
+                    // Indices groups
+                    if let indices = status.indicesGroups, !indices.isEmpty {
+                        ForEach(Array(indices.keys.sorted().prefix(3)), id: \.self) { key in
+                            if let value = indices[key] {
+                                assetClassRow(
+                                    name: key.replacingOccurrences(of: "_", with: " ").capitalized,
+                                    isOpen: value.lowercased() == "open",
+                                    detail: value.capitalized
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Text("Loading asset class statuses...")
+                    .font(.subheadline)
+                    .foregroundColor(themeManager.textSoftColor)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(themeManager.panelBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(themeManager.panelBorder, lineWidth: 1)
+        )
+        .cornerRadius(16)
+    }
+    
+    private func assetClassRow(name: String, isOpen: Bool, detail: String?) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                .frame(width: 10, height: 10)
+                .shadow(
+                    color: isOpen
+                        ? themeManager.statusUpColor.opacity(0.5)
+                        : themeManager.statusDownColor.opacity(0.5),
+                    radius: 4
+                )
+            
+            Text(name)
+                .font(.subheadline)
+                .foregroundColor(themeManager.textColor)
+            
+            Spacer()
+            
+            if let detail = detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundColor(themeManager.textSoftColor)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }
