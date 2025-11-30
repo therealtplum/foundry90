@@ -70,7 +70,7 @@ struct MarketsListView: View {
         return markets.filter { market in
             market.name.localizedCaseInsensitiveContains(searchText) ||
             market.ticker.localizedCaseInsensitiveContains(searchText) ||
-            market.displayName.localizedCaseInsensitiveContains(searchText)
+            (market.displayName?.localizedCaseInsensitiveContains(searchText) ?? false)
         }
     }
     
