@@ -209,15 +209,22 @@ struct MarketsPlaceholderView: View {
                         )
                     }
                     
-                    // Indices groups
+                    // Indices groups - show only major indices
                     if let indices = status.indicesGroups, !indices.isEmpty {
-                        ForEach(Array(indices.keys.sorted().prefix(3)), id: \.self) { key in
-                            if let value = indices[key] {
-                                assetClassRow(
-                                    name: key.replacingOccurrences(of: "_", with: " ").capitalized,
-                                    isOpen: value.lowercased() == "open",
-                                    detail: value.capitalized
-                                )
+                        // Filter to show only major, well-known indices
+                        let majorIndices = ["dow_jones", "s_and_p", "nasdaq", "ftse_russell", "msci"]
+                        let filteredIndices = indices.filter { majorIndices.contains($0.key) }
+                        
+                        if !filteredIndices.isEmpty {
+                            ForEach(Array(filteredIndices.keys.sorted()), id: \.self) { key in
+                                if let value = indices[key] {
+                                    let displayName = formatIndexName(key)
+                                    assetClassRow(
+                                        name: displayName,
+                                        isOpen: value.lowercased() == "open",
+                                        detail: value.capitalized
+                                    )
+                                }
                             }
                         }
                     }
@@ -263,5 +270,22 @@ struct MarketsPlaceholderView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+    
+    private func formatIndexName(_ key: String) -> String {
+        switch key {
+        case "dow_jones":
+            return "Dow Jones"
+        case "s_and_p":
+            return "S&P 500"
+        case "nasdaq":
+            return "NASDAQ"
+        case "ftse_russell":
+            return "FTSE Russell"
+        case "msci":
+            return "MSCI"
+        default:
+            return key.replacingOccurrences(of: "_", with: " ").capitalized
+        }
     }
 }

@@ -361,7 +361,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "Test 12: Docker Images Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-REQUIRED_IMAGES=("fmhub-api" "fmhub-web" "fmhub-etl")
+# Check for Docker images - use actual image names from docker-compose.yml
+# Images are named with project prefix (therealtplum-*)
+REQUIRED_IMAGES=("therealtplum-api" "therealtplum-web" "therealtplum-etl")
 MISSING_IMAGES=0
 
 for image in "${REQUIRED_IMAGES[@]}"; do
@@ -369,13 +371,19 @@ for image in "${REQUIRED_IMAGES[@]}"; do
   if docker images --format '{{.Repository}}' | grep -q "^${image}$"; then
     log_success "Docker image ${image} exists"
   else
-    log_warning "Docker image ${image} not found (may need: docker compose build)"
+    # This is just a warning - images may not exist if containers were started without build
+    # Containers can run from remote images or be built on-demand
+    log_warning "Docker image ${image} not found (containers may be using remote images or need: docker compose build)"
     ((MISSING_IMAGES++))
   fi
 done
 
+# Note: Missing images is not a failure - containers can run from remote images
+# The important check is that containers are running (Test 1)
 if [ "$MISSING_IMAGES" -eq 0 ]; then
   log_success "All required Docker images are present"
+else
+  log_info "Some images not found locally, but containers are running (may be using remote images)"
 fi
 
 # Check ETL container exists (even if not running)
