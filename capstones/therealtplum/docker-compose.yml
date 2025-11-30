@@ -81,6 +81,34 @@ services:
     command: ["sleep", "infinity"]
 
   # -------------------------------------------------------------------
+  # Hadron – Real-time intelligence engine
+  # -------------------------------------------------------------------
+  hadron:
+    build:
+      context: ./apps/hadron
+      dockerfile: Dockerfile
+    container_name: fmhub_hadron
+    depends_on:
+      - db
+      - redis
+    environment:
+      DATABASE_URL: postgres://app:app@db:5432/fmhub
+      POLYGON_API_KEY: ${POLYGON_API_KEY}
+      # Multiple API keys for load distribution and redundancy
+      HADRON_API_KEY_1: ${HADRON_API_KEY_1:-}
+      HADRON_API_KEY_2: ${HADRON_API_KEY_2:-}
+      HADRON_API_KEY_3: ${HADRON_API_KEY_3:-}
+      HADRON_API_KEY_4: ${HADRON_API_KEY_4:-}
+      HADRON_SIMULATION_MODE: ${HADRON_SIMULATION_MODE:-true}
+      HADRON_NUM_SHARDS: ${HADRON_NUM_SHARDS:-1}
+      HADRON_WEBSOCKET_MODE: ${HADRON_WEBSOCKET_MODE:-delayed}
+      RUST_LOG: info
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------
   # Web – Next.js frontend
   # -------------------------------------------------------------------
   web:

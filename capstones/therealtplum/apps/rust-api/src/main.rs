@@ -287,6 +287,7 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
+        .route("/market/status", get(get_market_status_handler))
         .with_state(state)
         .layer(cors);
 
@@ -810,6 +811,62 @@ async fn get_focus_ticker_strip(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(Vec::<FocusTickerStripRow>::new()),
+            )
+        }
+    }
+}
+
+/// Market status DTO
+#[derive(Debug, Serialize, FromRow)]
+struct MarketStatusDto {
+    server_time: DateTime<Utc>,
+    market: String,
+    after_hours: bool,
+    early_hours: bool,
+    exchange_nasdaq: Option<String>,
+    exchange_nyse: Option<String>,
+    exchange_otc: Option<String>,
+    currency_crypto: Option<String>,
+    currency_fx: Option<String>,
+    indices_groups: Option<serde_json::Value>,
+}
+
+/// Get current market status
+async fn get_market_status_handler(
+    State(state): State<AppState>,
+) -> impl IntoResponse {
+    let result = sqlx::query_as::<_, MarketStatusDto>(
+        r#"
+        SELECT
+            server_time,
+            market,
+            after_hours,
+            early_hours,
+            exchange_nasdaq,
+            exchange_nyse,
+            exchange_otc,
+            currency_crypto,
+            currency_fx,
+            indices_groups
+        FROM market_status
+        ORDER BY server_time DESC
+        LIMIT 1
+        "#,
+    )
+    .fetch_optional(&state.db_pool)
+    .await;
+
+    match result {
+        Ok(Some(status)) => (StatusCode::OK, Json(json!(status))),
+        Ok(None) => (
+            StatusCode::NOT_FOUND,
+            Json(json!({"error": "no_market_status"})),
+        ),
+        Err(err) => {
+            error!("Failed to fetch market status: {err}");
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": "internal_error"})),
             )
         }
     }

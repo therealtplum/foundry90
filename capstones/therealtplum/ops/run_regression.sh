@@ -356,26 +356,46 @@ fi
 
 echo ""
 
-# Test 12: Docker Images Check
+# Test 12: Docker Images Check (Optional - containers are what matter)
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Test 12: Docker Images Check"
+echo "Test 12: Docker Images Check (Informational)"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-REQUIRED_IMAGES=("fmhub-api" "fmhub-web" "fmhub-etl")
-MISSING_IMAGES=0
+# Note: Docker Compose automatically prefixes image names with the project name (directory name)
+# The actual image names depend on where docker-compose.yml is run from.
+# This test is informational only - Test 1 already verifies containers are running,
+# which is what actually matters. Images may not exist locally if pulled from a registry.
 
-for image in "${REQUIRED_IMAGES[@]}"; do
-  # Check if image exists (using docker images with grep)
-  if docker images --format '{{.Repository}}' | grep -q "^${image}$"; then
-    log_success "Docker image ${image} exists"
+# Get the actual image names from running containers
+API_IMAGE=$(docker inspect fmhub_api --format '{{.Config.Image}}' 2>/dev/null || echo "")
+WEB_IMAGE=$(docker inspect fmhub_web --format '{{.Config.Image}}' 2>/dev/null || echo "")
+ETL_IMAGE=$(docker inspect fmhub_etl --format '{{.Config.Image}}' 2>/dev/null || echo "")
+
+if [ -n "$API_IMAGE" ]; then
+  log_info "API container is using image: ${API_IMAGE}"
+  if docker images --format '{{.Repository}}' | grep -q "^${API_IMAGE}$"; then
+    log_success "API image exists locally"
   else
-    log_warning "Docker image ${image} not found (may need: docker compose build)"
-    ((MISSING_IMAGES++))
+    log_info "API image not found locally (may be from remote registry)"
   fi
-done
+fi
 
-if [ "$MISSING_IMAGES" -eq 0 ]; then
-  log_success "All required Docker images are present"
+if [ -n "$WEB_IMAGE" ]; then
+  log_info "Web container is using image: ${WEB_IMAGE}"
+  if docker images --format '{{.Repository}}' | grep -q "^${WEB_IMAGE}$"; then
+    log_success "Web image exists locally"
+  else
+    log_info "Web image not found locally (may be from remote registry)"
+  fi
+fi
+
+if [ -n "$ETL_IMAGE" ]; then
+  log_info "ETL container is using image: ${ETL_IMAGE}"
+  if docker images --format '{{.Repository}}' | grep -q "^${ETL_IMAGE}$"; then
+    log_success "ETL image exists locally"
+  else
+    log_info "ETL image not found locally (may be from remote registry)"
+  fi
 fi
 
 # Check ETL container exists (even if not running)
