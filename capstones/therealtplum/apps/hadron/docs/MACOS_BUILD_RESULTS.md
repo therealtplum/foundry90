@@ -49,7 +49,7 @@
 ## Build Output Location
 
 ```
-/Users/thomasplummer/Library/Developer/Xcode/DerivedData/FMHubControl-ggadatjhclzhyraudiaeqzckgsqu/Build/Products/Debug/FMHubControl.app
+~/Library/Developer/Xcode/DerivedData/FMHubControl-*/Build/Products/Debug/FMHubControl.app
 ```
 
 ## Next Steps for Testing
