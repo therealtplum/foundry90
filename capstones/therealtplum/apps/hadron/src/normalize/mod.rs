@@ -6,6 +6,10 @@ use std::collections::HashMap;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{error, info, warn};
 
+// Kalshi normalizer module
+mod kalshi;
+use kalshi::KalshiNormalizer;
+
 /// Normalizer that converts raw events to HadronTick
 pub struct Normalizer {
     db_pool: PgPool,
@@ -13,6 +17,8 @@ pub struct Normalizer {
     tx: broadcast::Sender<HadronTick>,
     // Cache of ticker -> instrument_id mappings
     symbol_cache: HashMap<String, i64>,
+    // Kalshi normalizer instance
+    kalshi_normalizer: KalshiNormalizer,
 }
 
 impl Normalizer {
@@ -22,10 +28,11 @@ impl Normalizer {
         tx: broadcast::Sender<HadronTick>,
     ) -> Self {
         Self {
-            db_pool,
+            db_pool: db_pool.clone(),
             rx,
             tx,
             symbol_cache: HashMap::new(),
+            kalshi_normalizer: KalshiNormalizer::new(db_pool),
         }
     }
 
@@ -56,6 +63,11 @@ impl Normalizer {
         // Handle Polygon trade events
         if raw_event.source == "polygon" && raw_event.venue == "polygon_ws" {
             return self.normalize_polygon_trade(raw_event).await;
+        }
+
+        // Handle Kalshi events
+        if raw_event.source == "kalshi" && raw_event.venue == "kalshi_ws" {
+            return self.kalshi_normalizer.normalize(raw_event).await;
         }
 
         // Unknown source/venue - skip for now
