@@ -29,4 +29,4 @@ __pycache__/
 !**/node_modules/**/*.pem
 
 # ---- Personal reference docs (not for version control) ----
-docs/third_party_tools.md
+docs/third_party_tools.mdncaa_ku_moneylines.json
