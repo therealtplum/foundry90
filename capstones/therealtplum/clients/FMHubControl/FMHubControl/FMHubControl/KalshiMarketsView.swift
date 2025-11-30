@@ -15,11 +15,15 @@ class KalshiMarketsViewModel: ObservableObject {
     @Published var userId: String? = nil
     @Published var account: KalshiUserAccount? = nil
     
-    // Market status
+    // Market status (traditional markets)
     @Published var marketStatus: MarketStatus?
     @Published var marketStatusLoading = false
     @Published var marketStatusError: String?
     @Published var autoRefreshMarketStatus = true
+    
+    // Kalshi market status (aggregate)
+    @Published var kalshiActiveMarkets: Int = 0
+    @Published var kalshiTotalMarkets: Int = 0
     
     // Login form fields
     @Published var loginApiKey: String = ""
@@ -44,6 +48,7 @@ class KalshiMarketsViewModel: ObservableObject {
             await loadAccount()
             await loadMarkets()
             await loadMarketStatus()
+            updateKalshiMarketStatus()
             startMarketStatusAutoRefresh()
         }
     }
@@ -142,6 +147,7 @@ class KalshiMarketsViewModel: ObservableObject {
                 search: searchText.isEmpty ? nil : searchText
             )
             markets = results
+            updateKalshiMarketStatus()
         } catch {
             errorMessage = "Error loading markets: \(error.localizedDescription)"
             markets = []
@@ -152,6 +158,12 @@ class KalshiMarketsViewModel: ObservableObject {
     
     func refresh() async {
         await loadMarkets()
+        updateKalshiMarketStatus()
+    }
+    
+    private func updateKalshiMarketStatus() {
+        kalshiTotalMarkets = markets.count
+        kalshiActiveMarkets = markets.filter { $0.status.lowercased() == "active" }.count
     }
     
     func loadMarketStatus() async {
@@ -262,42 +274,58 @@ struct KalshiMarketsView: View {
     
     private var marketsView: some View {
         VStack(spacing: 0) {
-            // Market Status Section
-            if let status = viewModel.marketStatus {
-                HStack(spacing: 12) {
-                    Circle()
-                        .fill(status.isOpen ? Color.green : Color.red)
-                        .frame(width: 12, height: 12)
-                        .shadow(
-                            color: status.isOpen ? Color.green.opacity(0.5) : Color.red.opacity(0.5),
-                            radius: 4
-                        )
-                    
-                    Text(status.statusDisplay)
-                        .font(.system(size: 14, weight: .semibold))
-                    
-                    if let exchangeStatus = status.primaryExchangeStatus {
-                        Text("• NYSE/NASDAQ: \(exchangeStatus.capitalized)")
+            // Market Status Section (Traditional + Kalshi)
+            HStack(spacing: 16) {
+                // Traditional Market Status
+                if let status = viewModel.marketStatus {
+                    HStack(spacing: 8) {
+                        Circle()
+                            .fill(status.isOpen ? Color.green : Color.red)
+                            .frame(width: 10, height: 10)
+                            .shadow(
+                                color: status.isOpen ? Color.green.opacity(0.5) : Color.red.opacity(0.5),
+                                radius: 3
+                            )
+                        
+                        Text(status.statusDisplay)
+                            .font(.system(size: 13, weight: .semibold))
+                        
+                        if let exchangeStatus = status.primaryExchangeStatus {
+                            Text("• \(exchangeStatus.capitalized)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } else if viewModel.marketStatusLoading {
+                    HStack(spacing: 6) {
+                        ProgressView().controlSize(.small)
+                        Text("Loading...")
                             .font(.caption)
                             .foregroundColor(.secondary)
                     }
+                }
+                
+                // Kalshi Market Status
+                if viewModel.kalshiTotalMarkets > 0 {
+                    Divider()
+                        .frame(height: 16)
                     
-                    Spacer()
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(viewModel.kalshiActiveMarkets > 0 ? Color.blue : Color.gray)
+                            .frame(width: 8, height: 8)
+                        
+                        Text("Kalshi: \(viewModel.kalshiActiveMarkets)/\(viewModel.kalshiTotalMarkets) active")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
-            } else if viewModel.marketStatusLoading {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.small)
-                    Text("Loading market status...")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(NSColor.controlBackgroundColor))
+                
+                Spacer()
             }
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+            .background(Color(NSColor.controlBackgroundColor))
             
             Divider()
             
