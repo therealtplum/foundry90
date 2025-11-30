@@ -97,16 +97,35 @@ impl KalshiNormalizer {
 
         // Kalshi prices are in cents (0-100), representing probability
         // We'll use the mid-price: (bid + ask) / 2, or last_price if available
+        // Prices can be integers or floats, so try both
         let price_cents = data
             .get("last_price")
-            .and_then(|v| v.as_u64())
+            .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))
             .or_else(|| {
                 // Fall back to mid-price
-                let bid = data.get("bid").and_then(|v| v.as_u64())?;
-                let ask = data.get("ask").and_then(|v| v.as_u64())?;
+                let bid = data.get("bid")
+                    .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))?;
+                let ask = data.get("ask")
+                    .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))?;
                 Some((bid + ask) / 2)
             })
-            .context("Missing price information in Kalshi ticker")?;
+            .or_else(|| {
+                // Try "yes" price (for binary markets)
+                data.get("yes")
+                    .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))
+            });
+
+        let price_cents = match price_cents {
+            Some(p) => p,
+            None => {
+                // Log the actual data structure for debugging
+                warn!(
+                    "Missing price information in Kalshi ticker for market {}: {:?}",
+                    market_ticker, data
+                );
+                return Ok(None);
+            }
+        };
 
         // Convert cents to Decimal (0-100 range, representing 0-100% probability)
         let price = Decimal::from(price_cents) / Decimal::from(100);
