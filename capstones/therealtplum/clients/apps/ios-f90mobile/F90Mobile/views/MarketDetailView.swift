@@ -213,17 +213,11 @@ struct MarketDetailView: View {
 }
 
 #Preview {
+    // Preview disabled - KalshiMarketSummary requires JSON decoding
+    // To test, use a real market from the API
     NavigationStack {
-        MarketDetailView(market: KalshiMarketSummary(
-            id: 1,
-            ticker: "TEST-1",
-            name: "Test Market",
-            displayName: "Will this test pass?",
-            category: "Test",
-            status: "open",
-            yesPrice: 0.65,
-            volume: 1000
-        ))
+        Text("Market Detail Preview")
+            .navigationTitle("Market Detail")
     }
 }
 

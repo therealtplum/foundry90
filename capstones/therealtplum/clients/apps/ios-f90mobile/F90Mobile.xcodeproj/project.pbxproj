@@ -7,58 +7,45 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		C41AA9F22EDC7D5E00F9C4A1 /* F90Shared in Frameworks */ = {isa = PBXBuildFile; productRef = C41AA9F12EDC7D5E00F9C4A1 /* F90Shared */; };
+		C44507182EDDBFD50074D210 /* F90Shared in Frameworks */ = {isa = PBXBuildFile; productRef = C44507172EDDBFD50074D210 /* F90Shared */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		C41AA9B22EDC7C0D00F9C4A1 /* F90Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = F90Mobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		C46E4DE32EDDBDED007D1DA7 /* F90Mobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = F90Mobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		C41AA9EF2EDC7D0700F9C4A1 /* Exceptions for "F90Mobile" folder in "F90Mobile" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = C41AA9B12EDC7C0D00F9C4A1 /* F90Mobile */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		C41AA9B42EDC7C0D00F9C4A1 /* F90Mobile */ = {
+		C46E4DE52EDDBDED007D1DA7 /* F90Mobile */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				C41AA9EF2EDC7D0700F9C4A1 /* Exceptions for "F90Mobile" folder in "F90Mobile" target */,
-			);
 			path = F90Mobile;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		C41AA9AF2EDC7C0D00F9C4A1 /* Frameworks */ = {
+		C46E4DE02EDDBDED007D1DA7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C41AA9F22EDC7D5E00F9C4A1 /* F90Shared in Frameworks */,
+				C44507182EDDBFD50074D210 /* F90Shared in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		C41AA9A92EDC7C0D00F9C4A1 = {
+		C46E4DDA2EDDBDED007D1DA7 = {
 			isa = PBXGroup;
 			children = (
-				C41AA9B42EDC7C0D00F9C4A1 /* F90Mobile */,
-				C41AA9B32EDC7C0D00F9C4A1 /* Products */,
+				C46E4DE52EDDBDED007D1DA7 /* F90Mobile */,
+				C46E4DE42EDDBDED007D1DA7 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		C41AA9B32EDC7C0D00F9C4A1 /* Products */ = {
+		C46E4DE42EDDBDED007D1DA7 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				C41AA9B22EDC7C0D00F9C4A1 /* F90Mobile.app */,
+				C46E4DE32EDDBDED007D1DA7 /* F90Mobile.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -66,68 +53,68 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		C41AA9B12EDC7C0D00F9C4A1 /* F90Mobile */ = {
+		C46E4DE22EDDBDED007D1DA7 /* F90Mobile */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = C41AA9BD2EDC7C0E00F9C4A1 /* Build configuration list for PBXNativeTarget "F90Mobile" */;
+			buildConfigurationList = C46E4DEE2EDDBDEE007D1DA7 /* Build configuration list for PBXNativeTarget "F90Mobile" */;
 			buildPhases = (
-				C41AA9AE2EDC7C0D00F9C4A1 /* Sources */,
-				C41AA9AF2EDC7C0D00F9C4A1 /* Frameworks */,
-				C41AA9B02EDC7C0D00F9C4A1 /* Resources */,
+				C46E4DDF2EDDBDED007D1DA7 /* Sources */,
+				C46E4DE02EDDBDED007D1DA7 /* Frameworks */,
+				C46E4DE12EDDBDED007D1DA7 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				C41AA9B42EDC7C0D00F9C4A1 /* F90Mobile */,
+				C46E4DE52EDDBDED007D1DA7 /* F90Mobile */,
 			);
 			name = F90Mobile;
 			packageProductDependencies = (
-				C41AA9F12EDC7D5E00F9C4A1 /* F90Shared */,
+				C44507172EDDBFD50074D210 /* F90Shared */,
 			);
 			productName = F90Mobile;
-			productReference = C41AA9B22EDC7C0D00F9C4A1 /* F90Mobile.app */;
+			productReference = C46E4DE32EDDBDED007D1DA7 /* F90Mobile.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		C41AA9AA2EDC7C0D00F9C4A1 /* Project object */ = {
+		C46E4DDB2EDDBDED007D1DA7 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
-					C41AA9B12EDC7C0D00F9C4A1 = {
+					C46E4DE22EDDBDED007D1DA7 = {
 						CreatedOnToolsVersion = 26.1.1;
 					};
 				};
 			};
-			buildConfigurationList = C41AA9AD2EDC7C0D00F9C4A1 /* Build configuration list for PBXProject "F90Mobile" */;
+			buildConfigurationList = C46E4DDE2EDDBDED007D1DA7 /* Build configuration list for PBXProject "F90Mobile" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = C41AA9A92EDC7C0D00F9C4A1;
+			mainGroup = C46E4DDA2EDDBDED007D1DA7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				C41AA9F02EDC7D5E00F9C4A1 /* XCLocalSwiftPackageReference "../F90Shared" */,
+				C44507162EDDBFD50074D210 /* XCLocalSwiftPackageReference "../../shared" */,
 			);
 			preferredProjectObjectVersion = 77;
-			productRefGroup = C41AA9B32EDC7C0D00F9C4A1 /* Products */;
+			productRefGroup = C46E4DE42EDDBDED007D1DA7 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				C41AA9B12EDC7C0D00F9C4A1 /* F90Mobile */,
+				C46E4DE22EDDBDED007D1DA7 /* F90Mobile */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		C41AA9B02EDC7C0D00F9C4A1 /* Resources */ = {
+		C46E4DE12EDDBDED007D1DA7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -137,7 +124,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		C41AA9AE2EDC7C0D00F9C4A1 /* Sources */ = {
+		C46E4DDF2EDDBDED007D1DA7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -147,7 +134,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		C41AA9BB2EDC7C0E00F9C4A1 /* Debug */ = {
+		C46E4DEC2EDDBDEE007D1DA7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -211,7 +198,7 @@
 			};
 			name = Debug;
 		};
-		C41AA9BC2EDC7C0E00F9C4A1 /* Release */ = {
+		C46E4DED2EDDBDEE007D1DA7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -268,7 +255,7 @@
 			};
 			name = Release;
 		};
-		C41AA9BE2EDC7C0E00F9C4A1 /* Debug */ = {
+		C46E4DEF2EDDBDEE007D1DA7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -277,8 +264,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9XWB6J52M7;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = F90Mobile/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -305,7 +292,7 @@
 			};
 			name = Debug;
 		};
-		C41AA9BF2EDC7C0E00F9C4A1 /* Release */ = {
+		C46E4DF02EDDBDEE007D1DA7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -314,8 +301,8 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 9XWB6J52M7;
 				ENABLE_PREVIEWS = YES;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = F90Mobile/Info.plist;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -345,20 +332,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		C41AA9AD2EDC7C0D00F9C4A1 /* Build configuration list for PBXProject "F90Mobile" */ = {
+		C46E4DDE2EDDBDED007D1DA7 /* Build configuration list for PBXProject "F90Mobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C41AA9BB2EDC7C0E00F9C4A1 /* Debug */,
-				C41AA9BC2EDC7C0E00F9C4A1 /* Release */,
+				C46E4DEC2EDDBDEE007D1DA7 /* Debug */,
+				C46E4DED2EDDBDEE007D1DA7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		C41AA9BD2EDC7C0E00F9C4A1 /* Build configuration list for PBXNativeTarget "F90Mobile" */ = {
+		C46E4DEE2EDDBDEE007D1DA7 /* Build configuration list for PBXNativeTarget "F90Mobile" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				C41AA9BE2EDC7C0E00F9C4A1 /* Debug */,
-				C41AA9BF2EDC7C0E00F9C4A1 /* Release */,
+				C46E4DEF2EDDBDEE007D1DA7 /* Debug */,
+				C46E4DF02EDDBDEE007D1DA7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -366,18 +353,18 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		C41AA9F02EDC7D5E00F9C4A1 /* XCLocalSwiftPackageReference "../F90Shared" */ = {
+		C44507162EDDBFD50074D210 /* XCLocalSwiftPackageReference "../../shared" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../F90Shared;
+			relativePath = ../../shared;
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		C41AA9F12EDC7D5E00F9C4A1 /* F90Shared */ = {
+		C44507172EDDBFD50074D210 /* F90Shared */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = F90Shared;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
-	rootObject = C41AA9AA2EDC7C0D00F9C4A1 /* Project object */;
+	rootObject = C46E4DDB2EDDBDED007D1DA7 /* Project object */;
 }
