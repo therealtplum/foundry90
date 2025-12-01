@@ -49,6 +49,16 @@ struct FredService: FredServiceType {
         if !(200..<300).contains(httpResponse.statusCode) {
             let errorBody = String(data: data, encoding: .utf8) ?? "Unable to decode error response"
             print("FRED API error: status=\(httpResponse.statusCode), body=\(errorBody)")
+            print("FRED API request URL: \(url)")
+            
+            // Provide more specific error based on status code
+            if httpResponse.statusCode == 404 {
+                print("FRED API: 404 Not Found - Check if Rust API server is running on port 3000")
+                print("FRED API: Try: curl http://127.0.0.1:3000/fred/releases/upcoming?days=30")
+            } else if httpResponse.statusCode == 503 {
+                print("FRED API: 503 Service Unavailable - FRED_API_KEY may not be configured")
+            }
+            
             throw URLError(.badServerResponse)
         }
         

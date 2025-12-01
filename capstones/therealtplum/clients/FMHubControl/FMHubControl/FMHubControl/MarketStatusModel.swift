@@ -12,6 +12,8 @@ struct MarketStatus: Codable {
     let exchangeOtc: String?
     let currencyCrypto: String?
     let currencyFx: String?
+    let optionsStatus: String?
+    let kalshiStatus: String?
     let indicesGroups: [String: String]?
     
     enum CodingKeys: String, CodingKey {
@@ -24,6 +26,8 @@ struct MarketStatus: Codable {
         case exchangeOtc = "exchange_otc"
         case currencyCrypto = "currency_crypto"
         case currencyFx = "currency_fx"
+        case optionsStatus = "options_status"
+        case kalshiStatus = "kalshi_status"
         case indicesGroups = "indices_groups"
     }
 }
@@ -65,6 +69,26 @@ extension MarketStatus {
     /// Returns true if forex markets are open
     var isForexOpen: Bool {
         return currencyFx?.lowercased() == "open"
+    }
+    
+    /// Returns true if US options markets are open (generally same hours as stocks)
+    var isOptionsOpen: Bool {
+        // Options typically trade during regular market hours (same as stocks)
+        // If optionsStatus is provided, use it; otherwise assume same as stocks
+        if let options = optionsStatus {
+            return options.lowercased() == "open"
+        }
+        return isOpen
+    }
+    
+    /// Returns true if Kalshi markets are active
+    var isKalshiOpen: Bool {
+        // Kalshi markets are typically always available (24/7)
+        // If kalshiStatus is provided, use it; otherwise assume open
+        if let kalshi = kalshiStatus {
+            return kalshi.lowercased() == "open" || kalshi.lowercased() == "active"
+        }
+        return true // Kalshi markets are generally always available
     }
 }
 

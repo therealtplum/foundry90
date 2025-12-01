@@ -98,9 +98,21 @@ struct MarketStatusWidget: View {
                         
                         VStack(spacing: 8) {
                             assetClassRow(
-                                name: "Stocks",
+                                name: "US Equities",
                                 isOpen: status.isOpen,
                                 detail: status.primaryExchangeStatus?.capitalized
+                            )
+                            
+                            assetClassRow(
+                                name: "US Options",
+                                isOpen: status.isOptionsOpen,
+                                detail: status.optionsStatus?.capitalized ?? (status.isOptionsOpen ? "Open" : "Closed")
+                            )
+                            
+                            assetClassRow(
+                                name: "Kalshi",
+                                isOpen: status.isKalshiOpen,
+                                detail: status.kalshiStatus?.capitalized ?? (status.isKalshiOpen ? "Active" : "Inactive")
                             )
                             
                             if let cryptoStatus = status.currencyCrypto {

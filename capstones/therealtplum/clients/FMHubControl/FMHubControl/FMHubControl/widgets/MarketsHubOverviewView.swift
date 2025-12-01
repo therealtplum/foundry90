@@ -45,14 +45,12 @@ struct WidgetConfig: Identifiable, Equatable {
     let id: String
     let type: WidgetType
     var columnSpan: Int // 1, 2, or 3 columns
-    var height: CGFloat? // Optional fixed height in points (nil = auto)
     var order: Int // Display order
     
-    init(id: String, type: WidgetType, columnSpan: Int? = nil, height: CGFloat? = nil, order: Int = 0) {
+    init(id: String, type: WidgetType, columnSpan: Int? = nil, order: Int = 0) {
         self.id = id
         self.type = type
         self.columnSpan = min(3, max(1, columnSpan ?? type.defaultColumnSpan))
-        self.height = height
         self.order = order
     }
 }
@@ -65,71 +63,61 @@ struct MarketsHubOverviewView: View {
         WidgetConfig(id: "3", type: .fredReleases, columnSpan: 2, order: 2)
     ]
     @State private var showAddMenu = false
-    @State private var draggedWidgetId: String? = nil
-    @State private var hoveredWidgetId: String? = nil
-    @State private var dropBeforeOrder: Int? = nil
-    @State private var dragOffset: CGSize = .zero
-    @State private var widgetFrames: [String: CGRect] = [:]
-    @State private var resizingWidgetId: String? = nil
-    @State private var resizeStartHeight: CGFloat = 0
-    @State private var resizeStartY: CGFloat = 0
-    @State private var currentResizeHeight: CGFloat = 0
+    @State private var editingWidgetId: String? = nil
     
     private let columns = 3
     private let columnSpacing: CGFloat = 20
     
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Controls
-                HStack {
-                    Spacer()
-                    
-                    Button {
-                        showAddMenu.toggle()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 14))
-                            Text("Add Widget")
-                                .font(.system(size: 14, weight: .medium))
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 8)
-                        .background(themeManager.accentColor.opacity(0.2))
-                        .foregroundColor(themeManager.accentColor)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .stroke(themeManager.accentColor, lineWidth: 1)
-                        )
-                        .cornerRadius(8)
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(availableWidgets.isEmpty)
-                    .popover(isPresented: $showAddMenu) {
-                        addMenuView
-                    }
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
+        VStack(alignment: .leading, spacing: 24) {
+            // Controls
+            HStack {
+                Spacer()
                 
-                // Widget Grid - 3 column layout
-                WidgetGridLayout(
-                    columns: columns,
-                    spacing: columnSpacing,
-                    widgets: widgets.sorted { $0.order < $1.order },
-                    draggedWidgetId: draggedWidgetId,
-                    dropBeforeOrder: dropBeforeOrder
-                ) { widget in
-                    widgetCard(for: widget)
+                Button {
+                    showAddMenu.toggle()
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 14))
+                        Text("Add Widget")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(themeManager.accentColor.opacity(0.2))
+                    .foregroundColor(themeManager.accentColor)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(themeManager.accentColor, lineWidth: 1)
+                    )
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                .disabled(availableWidgets.isEmpty)
+                .popover(isPresented: $showAddMenu) {
+                    addMenuView
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 16)
+            
+            // Widget Grid - 3 column layout
+            ScrollView {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: columnSpacing),
+                    GridItem(.flexible(), spacing: columnSpacing),
+                    GridItem(.flexible(), spacing: columnSpacing)
+                ], alignment: .leading, spacing: columnSpacing) {
+                    ForEach(widgets.sorted { $0.order < $1.order }) { widget in
+                        widgetCard(for: widget)
+                            .gridCellColumns(widget.columnSpan)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                    }
                 }
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
             }
-        }
-        .coordinateSpace(name: "widgetGrid")
-        .onPreferenceChange(WidgetFramePreferenceKey.self) { frames in
-            widgetFrames = frames
         }
     }
     
@@ -180,237 +168,153 @@ struct MarketsHubOverviewView: View {
     }
     
     private func widgetCard(for config: WidgetConfig) -> some View {
-        let isHovered = hoveredWidgetId == config.id
-        let isDragged = draggedWidgetId == config.id
-        let showDropBefore = dropBeforeOrder == config.order && draggedWidgetId != nil && draggedWidgetId != config.id
+        let isEditing = editingWidgetId == config.id
+        let sortedWidgets = widgets.sorted { $0.order < $1.order }
+        let currentIndex = sortedWidgets.firstIndex(where: { $0.id == config.id }) ?? 0
+        let canMoveUp = currentIndex > 0
+        let canMoveDown = currentIndex < sortedWidgets.count - 1
         
-        return VStack(spacing: 0) {
-            // Drop indicator before widget
-            if showDropBefore {
-                Rectangle()
-                    .fill(themeManager.accentColor)
-                    .frame(height: 3)
-                    .padding(.vertical, 4)
+        return Group {
+            switch config.type {
+            case .marketStatus:
+                MarketStatusWidget()
+            case .accountBalances:
+                AccountBalancesWidget()
+            case .positions:
+                Text("Positions Widget")
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .padding()
+                    .background(themeManager.panelBackground)
+                    .cornerRadius(12)
+            case .watchList:
+                Text("Watch List Widget")
+                    .frame(maxWidth: .infinity, minHeight: 200)
+                    .padding()
+                    .background(themeManager.panelBackground)
+                    .cornerRadius(12)
+            case .fredReleases:
+                FredReleasesWidget()
             }
-            
-            // Widget content
+        }
+        .overlay(
+            // Edit controls overlay
             Group {
-                switch config.type {
-                case .marketStatus:
-                    MarketStatusWidget()
-                case .accountBalances:
-                    AccountBalancesWidget()
-                case .positions:
-                    Text("Positions Widget")
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                        .padding()
-                        .background(themeManager.panelBackground)
-                        .cornerRadius(12)
-                case .watchList:
-                    Text("Watch List Widget")
-                        .frame(maxWidth: .infinity, minHeight: 200)
-                        .padding()
-                        .background(themeManager.panelBackground)
-                        .cornerRadius(12)
-                case .fredReleases:
-                    FredReleasesWidget()
-                }
-            }
-            .frame(height: config.height)
-            .opacity(isDragged ? 0.4 : 1.0)
-            .overlay(
-                // Controls overlay - only show on hover
-                Group {
-                    if isHovered && !isDragged {
-                        VStack {
-                            HStack {
-                                Spacer()
-                                
-                                // Controls (top-right) - compact layout
+                if isEditing {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            
+                            // Controls (top-right)
+                            VStack(spacing: 8) {
+                                // Column span controls
                                 HStack(spacing: 4) {
-                                    resizeControls(for: config)
-                                    removeButton(for: config)
+                                    ForEach([1, 2, 3], id: \.self) { span in
+                                        Button {
+                                            updateColumnSpan(id: config.id, span: span)
+                                        } label: {
+                                            Text("\(span)")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundColor(
+                                                    config.columnSpan == span
+                                                        ? themeManager.accentColor
+                                                        : themeManager.textSoftColor
+                                                )
+                                                .frame(width: 24, height: 24)
+                                                .background(
+                                                    config.columnSpan == span
+                                                        ? themeManager.accentColor.opacity(0.2)
+                                                        : themeManager.panelBackground.opacity(0.8)
+                                                )
+                                                .cornerRadius(4)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+                                }
+                                
+                                // Reorder buttons
+                                HStack(spacing: 4) {
+                                    Button {
+                                        moveWidgetUp(id: config.id)
+                                    } label: {
+                                        Image(systemName: "arrow.up")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(canMoveUp ? themeManager.textColor : themeManager.textSoftColor)
+                                            .frame(width: 24, height: 24)
+                                            .background(themeManager.panelBackground.opacity(0.8))
+                                            .cornerRadius(4)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!canMoveUp)
+                                    
+                                    Button {
+                                        moveWidgetDown(id: config.id)
+                                    } label: {
+                                        Image(systemName: "arrow.down")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(canMoveDown ? themeManager.textColor : themeManager.textSoftColor)
+                                            .frame(width: 24, height: 24)
+                                            .background(themeManager.panelBackground.opacity(0.8))
+                                            .cornerRadius(4)
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(!canMoveDown)
+                                    
+                                    Button {
+                                        removeWidget(id: config.id)
+                                    } label: {
+                                        Image(systemName: "xmark")
+                                            .font(.system(size: 10))
+                                            .foregroundColor(themeManager.statusDownColor)
+                                            .frame(width: 24, height: 24)
+                                            .background(themeManager.panelBackground.opacity(0.8))
+                                            .cornerRadius(4)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                             }
-                            .padding(6)
+                            .padding(8)
+                            .background(themeManager.panelBackground.opacity(0.95))
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(themeManager.panelBorder, lineWidth: 1)
+                            )
+                        }
+                        
+                        Spacer()
+                    }
+                    .padding(8)
+                } else {
+                    // Edit button - show on tap
+                    VStack {
+                        HStack {
+                            Spacer()
                             
-                            Spacer()
+                            Button {
+                                editingWidgetId = config.id
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(themeManager.textSoftColor)
+                                    .frame(width: 28, height: 28)
+                                    .background(themeManager.panelBackground.opacity(0.8))
+                                    .cornerRadius(6)
+                            }
+                            .buttonStyle(.plain)
                         }
+                        
+                        Spacer()
                     }
-                },
-                alignment: .topTrailing
-            )
-            .overlay(
-                // Bottom resize handle - always visible when hovering or resizing
-                Group {
-                    if (isHovered && !isDragged) || resizingWidgetId == config.id {
-                        VStack {
-                            Spacer()
-                            resizeHandle(for: config)
-                                .padding(.bottom, 4)
-                        }
-                    }
-                },
-                alignment: .bottom
-            )
-            .background(
-                GeometryReader { geometry in
-                    Color.clear
-                        .preference(key: WidgetFramePreferenceKey.self, value: [
-                            config.id: geometry.frame(in: .named("widgetGrid"))
-                        ])
+                    .padding(8)
                 }
-            )
-            .offset(isDragged ? dragOffset : .zero)
-            .gesture(
-                DragGesture(minimumDistance: 10)
-                    .onChanged { value in
-                        // Only allow dragging if not resizing
-                        if resizingWidgetId == nil {
-                            if draggedWidgetId == nil {
-                                draggedWidgetId = config.id
-                            }
-                            if draggedWidgetId == config.id {
-                                dragOffset = value.translation
-                            }
-                        }
-                    }
-                    .onEnded { value in
-                        if let draggedId = draggedWidgetId {
-                            if let targetOrder = dropBeforeOrder {
-                                handleDrop(draggedId: draggedId, targetOrder: targetOrder)
-                            }
-                        }
-                        draggedWidgetId = nil
-                        dragOffset = .zero
-                        dropBeforeOrder = nil
-                    }
-            )
-            .onHover { hovering in
-                if !isDragged {
-                    hoveredWidgetId = hovering ? config.id : nil
-                }
-            }
-        }
-        .background(
-            // Drop zone - detects when dragging over this widget
-            Group {
-                if draggedWidgetId != nil && draggedWidgetId != config.id {
-                    Color.clear
-                        .contentShape(Rectangle())
-                        .onHover { hovering in
-                            if hovering {
-                                dropBeforeOrder = config.order
-                            } else if dropBeforeOrder == config.order {
-                                dropBeforeOrder = nil
-                            }
-                        }
-                }
-            }
+            },
+            alignment: .topTrailing
         )
-        .zIndex(isDragged ? 1000 : 0)
-    }
-    
-    private func resizeControls(for config: WidgetConfig) -> some View {
-        HStack(spacing: 4) {
-            ForEach([1, 2, 3], id: \.self) { span in
-                resizeButton(span: span, currentSpan: config.columnSpan, config: config)
+        .onTapGesture {
+            // Close edit mode when tapping outside
+            if isEditing {
+                editingWidgetId = nil
             }
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .background(themeManager.panelBackground.opacity(0.9))
-        .cornerRadius(6)
-    }
-    
-    private func resizeButton(span: Int, currentSpan: Int, config: WidgetConfig) -> some View {
-        Button {
-            resizeWidget(id: config.id, newSpan: span)
-        } label: {
-            Text("\(span)")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundColor(
-                    currentSpan == span
-                        ? themeManager.accentColor
-                        : themeManager.textSoftColor
-                )
-                .frame(width: 18, height: 18)
-                .background(
-                    currentSpan == span
-                        ? themeManager.accentColor.opacity(0.2)
-                        : Color.clear
-                )
-                .cornerRadius(3)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 3)
-                        .stroke(
-                            currentSpan == span
-                                ? themeManager.accentColor
-                                : Color.clear,
-                            lineWidth: 1
-                        )
-                )
-        }
-        .buttonStyle(.plain)
-        .help("Resize to \(span) column\(span == 1 ? "" : "s")")
-    }
-    
-    private func removeButton(for config: WidgetConfig) -> some View {
-        Button {
-            removeWidget(id: config.id)
-        } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 18))
-                .foregroundColor(themeManager.textSoftColor)
-                .background(Color.black.opacity(0.6))
-                .clipShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .help("Remove widget")
-    }
-    
-    private func resizeHandle(for config: WidgetConfig) -> some View {
-        let isResizing = resizingWidgetId == config.id
-        
-        return HStack {
-            Spacer()
-            
-            RoundedRectangle(cornerRadius: 2)
-                .fill(isResizing ? themeManager.accentColor : themeManager.textSoftColor.opacity(0.3))
-                .frame(width: 40, height: 4)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { value in
-                            if resizingWidgetId == nil {
-                                resizingWidgetId = config.id
-                                if let currentHeight = config.height {
-                                    resizeStartHeight = currentHeight
-                                } else {
-                                    // Get current widget height from frame
-                                    resizeStartHeight = widgetFrames[config.id]?.height ?? 300
-                                }
-                                resizeStartY = value.startLocation.y
-                            }
-                            
-                            if resizingWidgetId == config.id {
-                                let deltaY = value.translation.height
-                                let newHeight = max(200, resizeStartHeight + deltaY) // Minimum 200 points
-                                currentResizeHeight = newHeight
-                                updateWidgetHeight(id: config.id, height: newHeight)
-                            }
-                        }
-                        .onEnded { _ in
-                            resizingWidgetId = nil
-                            resizeStartHeight = 0
-                            resizeStartY = 0
-                            currentResizeHeight = 0
-                        }
-                )
-            
-            Spacer()
         }
     }
     
@@ -422,111 +326,40 @@ struct MarketsHubOverviewView: View {
     
     private func removeWidget(id: String) {
         widgets.removeAll { $0.id == id }
+        if editingWidgetId == id {
+            editingWidgetId = nil
+        }
     }
     
-    private func resizeWidget(id: String, newSpan: Int) {
-        guard newSpan >= 1 && newSpan <= 3 else { return }
+    private func updateColumnSpan(id: String, span: Int) {
+        guard span >= 1 && span <= 3 else { return }
         if let index = widgets.firstIndex(where: { $0.id == id }) {
-            widgets[index].columnSpan = newSpan
+            widgets[index].columnSpan = span
         }
     }
     
-    private func updateWidgetHeight(id: String, height: CGFloat) {
-        if let index = widgets.firstIndex(where: { $0.id == id }) {
-            widgets[index].height = height
-        }
+    private func moveWidgetUp(id: String) {
+        guard let currentIndex = widgets.firstIndex(where: { $0.id == id }),
+              currentIndex > 0 else { return }
+        
+        let previousIndex = currentIndex - 1
+        let currentOrder = widgets[currentIndex].order
+        let previousOrder = widgets[previousIndex].order
+        
+        widgets[currentIndex].order = previousOrder
+        widgets[previousIndex].order = currentOrder
     }
     
-    
-    private func handleDrop(draggedId: String, targetOrder: Int) {
-        guard let sourceIndex = widgets.firstIndex(where: { $0.id == draggedId }),
-              let targetIndex = widgets.firstIndex(where: { $0.order == targetOrder }),
-              sourceIndex != targetIndex else {
-            return
-        }
+    private func moveWidgetDown(id: String) {
+        guard let currentIndex = widgets.firstIndex(where: { $0.id == id }),
+              currentIndex < widgets.count - 1 else { return }
         
-        let draggedWidget = widgets[sourceIndex]
+        let nextIndex = currentIndex + 1
+        let currentOrder = widgets[currentIndex].order
+        let nextOrder = widgets[nextIndex].order
         
-        // Remove from source
-        widgets.remove(at: sourceIndex)
-        
-        // Calculate new target index after removal
-        let adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex
-        
-        // Insert at target position
-        widgets.insert(draggedWidget, at: adjustedTargetIndex)
-        
-        // Reorder all widgets
-        for (index, _) in widgets.enumerated() {
-            widgets[index].order = index
-        }
-    }
-}
-
-// MARK: - Widget Frame Preference Key
-
-struct WidgetFramePreferenceKey: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
-
-// MARK: - Widget Grid Layout
-
-struct WidgetGridLayout<Content: View>: View {
-    let columns: Int
-    let spacing: CGFloat
-    let widgets: [WidgetConfig]
-    let draggedWidgetId: String?
-    let dropBeforeOrder: Int?
-    let content: (WidgetConfig) -> Content
-    
-    var body: some View {
-        GeometryReader { geometry in
-            let columnWidth = (geometry.size.width - (spacing * CGFloat(columns - 1))) / CGFloat(columns)
-            
-            VStack(alignment: .leading, spacing: spacing) {
-                ForEach(Array(widgetRows(columnWidth: columnWidth, totalWidth: geometry.size.width).enumerated()), id: \.offset) { rowIndex, rowWidgets in
-                    HStack(alignment: .top, spacing: spacing) {
-                        ForEach(rowWidgets) { widget in
-                            content(widget)
-                                .frame(width: columnWidth * CGFloat(widget.columnSpan) + spacing * CGFloat(widget.columnSpan - 1))
-                        }
-                        
-                        Spacer(minLength: 0)
-                    }
-                }
-            }
-            .coordinateSpace(name: "widgetGrid")
-        }
-    }
-    
-    private func widgetRows(columnWidth: CGFloat, totalWidth: CGFloat) -> [[WidgetConfig]] {
-        var currentRow: [WidgetConfig] = []
-        var currentRowWidth: CGFloat = 0
-        var rows: [[WidgetConfig]] = []
-        
-        // Group widgets into rows
-        for widget in widgets {
-            let widgetWidth = columnWidth * CGFloat(widget.columnSpan) + spacing * CGFloat(widget.columnSpan - 1)
-            
-            if currentRowWidth + widgetWidth + (currentRow.isEmpty ? 0 : spacing) > totalWidth && !currentRow.isEmpty {
-                rows.append(currentRow)
-                currentRow = [widget]
-                currentRowWidth = widgetWidth
-            } else {
-                currentRow.append(widget)
-                currentRowWidth += widgetWidth + (currentRow.count > 1 ? spacing : 0)
-            }
-        }
-        
-        if !currentRow.isEmpty {
-            rows.append(currentRow)
-        }
-        
-        return rows
+        widgets[currentIndex].order = nextOrder
+        widgets[nextIndex].order = currentOrder
     }
 }
 

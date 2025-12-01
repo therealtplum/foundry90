@@ -79,7 +79,7 @@ struct FredReleasesWidget: View {
                     }
                     .padding(.vertical, 8)
                 }
-                .frame(maxWidth: .infinity, minHeight: 200)
+                .frame(maxWidth: .infinity, maxHeight: 500)
             } else if !viewModel.isLoading {
                 VStack(spacing: 8) {
                     Image(systemName: "calendar")
