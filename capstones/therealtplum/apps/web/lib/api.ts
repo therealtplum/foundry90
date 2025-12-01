@@ -42,10 +42,13 @@ export interface FocusTickerStripItem {
 }
 
 function getBaseUrl() {
+  // Client-side: use the public API URL (accessible from browser)
   if (typeof window !== "undefined") {
     return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
   }
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3000";
+  // Server-side: use internal Docker service name or fallback to public URL
+  // In Docker, server-side code should use the service name 'api'
+  return process.env.API_BASE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://api:3000";
 }
 
 async function apiGet<T>(path: string): Promise<T> {

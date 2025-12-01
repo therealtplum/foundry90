@@ -632,46 +632,54 @@ async fn get_instrument_insight_handler(
     let ttl_seconds: u64 = 3600;
 
     // 0. Redis cache
-    if let Ok(mut conn) = state.redis_pool.get().await {
-        match conn.get::<_, Option<String>>(&cache_key).await {
-            Ok(Some(cached)) => {
-                match serde_json::from_str::<InstrumentInsightRecord>(&cached) {
-                    Ok(rec) => {
-                        info!(
-                            "instrument_insight cache hit (key={}, id={}, kind={})",
-                            cache_key, id, kind
-                        );
-                        return (
-                            StatusCode::OK,
-                            Json(json!({
-                                "source": "cache",
-                                "insight": rec,
-                            })),
-                        );
-                    }
-                    Err(err) => {
-                        error!(
-                            "instrument_insight: failed to deserialize cached value (key={}): {}",
-                            cache_key, err
-                        );
+    // Skip Redis cache for "recent" insights to ensure we check for newer news in DB
+    if kind != "recent" {
+        if let Ok(mut conn) = state.redis_pool.get().await {
+            match conn.get::<_, Option<String>>(&cache_key).await {
+                Ok(Some(cached)) => {
+                    match serde_json::from_str::<InstrumentInsightRecord>(&cached) {
+                        Ok(rec) => {
+                            info!(
+                                "instrument_insight cache hit (key={}, id={}, kind={})",
+                                cache_key, id, kind
+                            );
+                            return (
+                                StatusCode::OK,
+                                Json(json!({
+                                    "source": "cache",
+                                    "insight": rec,
+                                })),
+                            );
+                        }
+                        Err(err) => {
+                            error!(
+                                "instrument_insight: failed to deserialize cached value (key={}): {}",
+                                cache_key, err
+                            );
+                        }
                     }
                 }
+                Ok(None) => {
+                    info!(
+                        "instrument_insight cache miss (key={}): no value present",
+                        cache_key
+                    );
+                }
+                Err(err) => {
+                    info!(
+                        "instrument_insight cache GET error (key={}): {}",
+                        cache_key, err
+                    );
+                }
             }
-            Ok(None) => {
-                info!(
-                    "instrument_insight cache miss (key={}): no value present",
-                    cache_key
-                );
-            }
-            Err(err) => {
-                info!(
-                    "instrument_insight cache GET error (key={}): {}",
-                    cache_key, err
-                );
-            }
+        } else {
+            error!("instrument_insight: failed to get Redis connection from pool");
         }
     } else {
-        error!("instrument_insight: failed to get Redis connection from pool");
+        info!(
+            "Skipping Redis cache for 'recent' insight (instrument_id={}) to check for newer news",
+            id
+        );
     }
 
     // 1. DB cache
@@ -696,22 +704,97 @@ async fn get_instrument_insight_handler(
 
     match cached_db {
         Ok(Some(rec)) => {
-            // best-effort backfill to Redis
-            if let Ok(payload) = serde_json::to_string(&rec) {
-                if let Ok(mut conn) = state.redis_pool.get().await {
-                    let _ = conn
-                        .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
-                        .await;
-                }
-            }
+            // For "recent" insights, check if there's newer news than when the insight was created
+            // If so, we should regenerate to include the latest news
+            if kind == "recent" {
+                let has_newer_news = sqlx::query_scalar::<_, bool>(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM news_articles
+                        WHERE instrument_id = $1
+                          AND published_at > $2
+                          AND published_at >= NOW() - INTERVAL '1 day' * $3
+                        LIMIT 1
+                    )
+                    "#,
+                )
+                .bind(id)
+                .bind(rec.created_at)
+                .bind(horizon_days)
+                .fetch_one(&state.db_pool)
+                .await;
 
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "source": "cache",
-                    "insight": rec,
-                })),
-            );
+                match has_newer_news {
+                    Ok(true) => {
+                        info!(
+                            "Cached 'recent' insight for instrument_id={id} is stale (newer news available); regenerating."
+                        );
+                        // Fall through to LLM generation
+                    }
+                    Ok(false) => {
+                        // No newer news, use cached insight
+                        info!(
+                            "Using cached 'recent' insight for instrument_id={id} (no newer news available)."
+                        );
+                        // best-effort backfill to Redis
+                        if let Ok(payload) = serde_json::to_string(&rec) {
+                            if let Ok(mut conn) = state.redis_pool.get().await {
+                                let _ = conn
+                                    .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                                    .await;
+                            }
+                        }
+
+                        return (
+                            StatusCode::OK,
+                            Json(json!({
+                                "source": "cache",
+                                "insight": rec,
+                            })),
+                        );
+                    }
+                    Err(err) => {
+                        error!(
+                            "Failed to check for newer news for instrument_id={id}: {err}. Proceeding with cache."
+                        );
+                        // On error, use cached insight
+                        if let Ok(payload) = serde_json::to_string(&rec) {
+                            if let Ok(mut conn) = state.redis_pool.get().await {
+                                let _ = conn
+                                    .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                                    .await;
+                            }
+                        }
+
+                        return (
+                            StatusCode::OK,
+                            Json(json!({
+                                "source": "cache",
+                                "insight": rec,
+                            })),
+                        );
+                    }
+                }
+            } else {
+                // For non-"recent" insights, use cache as normal
+                // best-effort backfill to Redis
+                if let Ok(payload) = serde_json::to_string(&rec) {
+                    if let Ok(mut conn) = state.redis_pool.get().await {
+                        let _ = conn
+                            .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                            .await;
+                    }
+                }
+
+                return (
+                    StatusCode::OK,
+                    Json(json!({
+                        "source": "cache",
+                        "insight": rec,
+                    })),
+                );
+            }
         }
         Ok(None) => {
             info!(

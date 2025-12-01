@@ -153,6 +153,10 @@ services:
     environment:
       # How the browser (on your Mac) talks to the Rust API
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
+      
+      # How the Next.js server (inside Docker) talks to the Rust API
+      # Use Docker service name for internal communication
+      API_BASE_URL_INTERNAL: "http://api:3000"
 
       # For /api/version → URL field & prod canonical
       NEXT_PUBLIC_SITE_URL: "https://www.foundry90.com"
