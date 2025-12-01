@@ -33,6 +33,7 @@ ops/pm_actions.json
 .kalshi_keys/
 *.pem
 !**/node_modules/**/*.pem
+.env.kalshi_key
 
 # ---- Personal reference docs (not for version control) ----
 docs/third_party_tools.md

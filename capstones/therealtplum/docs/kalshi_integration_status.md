@@ -306,7 +306,7 @@ KALSHI_BASE_URL=https://api.elections.kalshi.com/trade-api/v2
 
 ## References
 
-- **Pythia Project**: `/Users/thomasplummer/Documents/python/rust/pythia`
+- **Pythia Project**: External reference (path not included for security)
   - RSA-PSS signing implementation: `backend/crates/pythia-venues-kalshi/src/lib.rs`
 - **Kalshi API Docs**: https://docs.kalshi.com
 - **Kalshi Base URL**: `https://api.elections.kalshi.com/trade-api/v2`

@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::{FromRow, Row};
+use sqlx::FromRow;
 use tracing::{error, info};
 
 use crate::AppState;
@@ -304,16 +304,42 @@ pub async fn refresh_kalshi_user_account_handler(
     
     info!("Refreshing account data for user: {}", user_id);
     
+    // Get project root from environment or use current working directory
+    use std::path::PathBuf;
+    
+    let project_root = if let Ok(root) = std::env::var("PROJECT_ROOT") {
+        PathBuf::from(root)
+    } else {
+        std::env::current_dir()
+            .and_then(|cwd| {
+                // Try to find project root by looking for docker-compose.yml
+                let mut path = cwd.clone();
+                loop {
+                    if path.join("docker-compose.yml").exists() {
+                        return Ok(path);
+                    }
+                    match path.parent() {
+                        Some(parent) => path = parent.to_path_buf(),
+                        None => break,
+                    }
+                }
+                Ok(cwd) // Fallback to current dir if not found
+            })
+            .unwrap_or_else(|_| std::env::current_dir().unwrap())
+    };
+    
+    let docker_compose_path = project_root.join("docker-compose.yml");
+    
     // Call Python script to refresh account data
     let output = Command::new("docker")
         .args(&[
             "compose",
-            "-f", "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum/docker-compose.yml",
+            "-f", docker_compose_path.to_str().unwrap_or("docker-compose.yml"),
             "run", "--rm", "etl",
             "python", "-m", "etl.kalshi_refresh_account",
             &user_id,
         ])
-        .current_dir("/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum")
+        .current_dir(&project_root)
         .output()
         .await;
     

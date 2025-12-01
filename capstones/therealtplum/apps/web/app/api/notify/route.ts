@@ -11,8 +11,12 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Get Supabase client
 function getSupabaseClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rbkfyiwxouzwxayxqirz.supabase.co";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL environment variable is not set");
+  }
   
   if (!supabaseKey) {
     throw new Error("Supabase key not configured. Set SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY");
@@ -166,8 +170,15 @@ export async function POST(request: NextRequest) {
   console.log("SUPABASE_ANON_KEY:", process.env.SUPABASE_ANON_KEY ? "set" : "not set");
 
   // Check if Supabase is configured
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rbkfyiwxouzwxayxqirz.supabase.co";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl) {
+    return NextResponse.json(
+      { error: "Supabase URL not configured. Set NEXT_PUBLIC_SUPABASE_URL environment variable." },
+      { status: 500 }
+    );
+  }
 
   if (!supabaseKey && process.env.NODE_ENV === "production") {
     console.error("Supabase key not configured");
