@@ -28,7 +28,17 @@ clients/
 │   │   │   └── Assets.xcassets/   # App assets
 │   │   └── F90Hub.xcodeproj/      # Xcode project
 │   └── ios-f90mobile/              # iOS application (target: iOS, function: F90 Mobile)
-│       └── F90Mobile/             # App source code (to be populated)
+│       ├── F90Mobile/             # App source code
+│       │   ├── views/             # SwiftUI views
+│       │   │   ├── AccountView.swift
+│       │   │   ├── MarketDetailView.swift
+│       │   │   ├── MarketsListView.swift
+│       │   │   └── SettingsView.swift
+│       │   ├── ComingSoonView.swift
+│       │   ├── F90MobileApp.swift
+│       │   ├── MainTabView.swift
+│       │   └── Assets.xcassets/   # App assets
+│       └── F90Mobile.xcodeproj/   # Xcode project
 └── shared/                        # Shared code and assets (accessible by both apps)
     ├── Package.swift              # Swift Package Manager manifest
     ├── Sources/
@@ -75,11 +85,13 @@ clients/
 - All shared code moved to `shared/Sources/F90Shared/` Swift package
 - All app code organized into `views/`, `viewmodels/`, and `widgets/` directories
 - App renamed from `FMHubControl` to `F90Hub`
-- Xcode project updated with correct references
-- Package dependency configured and linked
+- iOS app fully integrated with ComingSoonView matching web aesthetic
+- Both macOS and iOS apps use shared package correctly
+- Xcode projects updated with correct references
+- Package dependencies configured and linked
 - All types made public for cross-module access
-- Deployment target set to macOS 14.0+
-- Old directories and files cleaned up
+- Deployment targets set (macOS 14.0+, iOS 16.0+)
+- Old directories and obsolete packages cleaned up
 
 ### Package Configuration
 - **macOS**: 14.0+
@@ -127,6 +139,15 @@ swift build
 3. Build: `Cmd+B`
 4. Run: `Cmd+R`
 
+### iOS App
+1. Open `apps/ios-f90mobile/F90Mobile.xcodeproj` in Xcode
+2. Ensure package dependency is resolved (File → Packages → Resolve Package Versions)
+3. Select an iOS Simulator (e.g., iPhone 15)
+4. Build: `Cmd+B`
+5. Run: `Cmd+R`
+
+**Note**: The iOS app currently displays a "Coming Soon" page matching the web capstones aesthetic. Full functionality is under development.
+
 ## Notes
 
 - **No functionality changed**: All code reorganization maintains existing functionality
@@ -152,5 +173,11 @@ If you encounter issues:
    - Restart Xcode if package resolution issues persist
 
 4. **Missing destinations**:
-   - Verify deployment target matches your system (macOS 14.0+)
+   - macOS: Verify deployment target matches your system (macOS 14.0+)
+   - iOS: Ensure iOS Simulator is available or connect a physical device
    - Check Xcode → Settings → Platforms for installed SDKs
+
+5. **Duplicate file compilation errors** (iOS):
+   - Clean build folder: `Shift+Cmd+K`
+   - Remove duplicate file references in Xcode Project Navigator
+   - Ensure files are only added once to the target
