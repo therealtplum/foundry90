@@ -1,3 +1,11 @@
+# Kalshi Instrument Normalization Design (Historical)
+
+⚠️ **ARCHIVED** - This is the original design proposal from when the feature was being planned. For current implementation status, see `status/KALSHI_NORMALIZATION_STATUS.md`.
+
+This document is kept for historical reference of the original design thinking.
+
+---
+
 # Kalshi Instrument Normalization Proposal
 
 ## Problem Statement

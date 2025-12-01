@@ -1,68 +1,156 @@
-# Foundry90 Client Applications
+# Clients Directory - Standardized Structure
 
-This directory contains client applications for the Foundry90 Markets Hub platform.
+## Overview
 
-## Applications
+The clients directory has been reorganized with standardized naming conventions based on function and target, grouped by function. All shared code and assets are now accessible by both macOS and iOS applications.
 
-### FMHubControl (macOS)
-Desktop application for macOS built with SwiftUI. Designed for larger screens and desktop workflows.
-
-**Location**: `FMHubControl/`
-
-**Key Features**:
-- System health monitoring
-- Operations management
-- Markets hub with advanced widgets
-- Desktop-optimized UI
-
-### F90Mobile (iOS)
-Mobile application for iPhone built with SwiftUI. Designed specifically for iPhone form factors and touch interactions.
-
-**Location**: `F90Mobile/`
-
-**Key Features**:
-- Markets browsing and search
-- Account management
-- Position tracking
-- iPhone-optimized navigation and UI
-
-## Shared Components
-
-### F90Shared (Swift Package)
-Shared Swift package containing common business logic, models, and services used by both macOS and iOS applications.
-
-**Location**: `F90Shared/`
-
-**Contents**:
-- `KalshiModels.swift`: Data models for markets, accounts, positions, credentials
-- `KalshiService.swift`: API service layer for backend communication
-
-**Usage**: Both FMHubControl and F90Mobile depend on this package to share core functionality while maintaining platform-specific UI implementations.
-
-## Architecture
+## Directory Structure
 
 ```
 clients/
-├── FMHubControl/          # macOS application
-│   └── FMHubControl/
-│       └── [macOS-specific views and components]
-├── F90Mobile/            # iOS application
-│   └── F90Mobile/
-│       └── [iOS-specific views and components]
-└── F90Shared/            # Shared Swift package
-    └── Sources/
-        └── F90Shared/
-            ├── KalshiModels.swift
-            └── KalshiService.swift
+├── apps/                          # Platform-specific applications (grouped by function)
+│   ├── macos-f90hub/              # macOS application (target: macOS, function: F90 Hub)
+│   │   ├── F90Hub/                # App source code
+│   │   │   ├── views/             # SwiftUI views
+│   │   │   │   ├── F90HubApp.swift
+│   │   │   │   ├── RootView.swift
+│   │   │   │   ├── SystemHealthView.swift
+│   │   │   │   ├── OperationsView.swift
+│   │   │   │   └── ...
+│   │   │   ├── viewmodels/        # View models (MVVM pattern)
+│   │   │   │   ├── SystemHealthViewModel.swift
+│   │   │   │   ├── MarketStatusViewModel.swift
+│   │   │   │   └── ...
+│   │   │   ├── widgets/           # Reusable widget components
+│   │   │   │   ├── BaseWidgetView.swift
+│   │   │   │   ├── MarketStatusWidget.swift
+│   │   │   │   └── ...
+│   │   │   └── Assets.xcassets/   # App assets
+│   │   └── F90Hub.xcodeproj/      # Xcode project
+│   └── ios-f90mobile/              # iOS application (target: iOS, function: F90 Mobile)
+│       └── F90Mobile/             # App source code (to be populated)
+└── shared/                        # Shared code and assets (accessible by both apps)
+    ├── Package.swift              # Swift Package Manager manifest
+    ├── Sources/
+    │   └── F90Shared/             # Shared Swift code
+    │       ├── KalshiService.swift
+    │       ├── KalshiModels.swift
+    │       ├── FredService.swift
+    │       ├── FredModels.swift
+    │       ├── SystemHealthService.swift
+    │       ├── SystemHealthModel.swift
+    │       ├── MarketStatusService.swift
+    │       ├── MarketStatusModel.swift
+    │       └── ThemeManager.swift
+    └── Resources/                 # Shared assets
+        ├── F90_logo.png
+        ├── F90_logo_small.png
+        ├── F90_logo_tiny.png
+        └── F90_logo.svg
 ```
 
-## Design Principles
+## Naming Conventions
 
-1. **Platform Separation**: Each platform (macOS/iOS) has its own application with platform-optimized UI
-2. **Shared Business Logic**: Common models and services are shared through the F90Shared package
-3. **Clear Boundaries**: Platform-specific code is clearly separated while sharing where it makes sense for scale
+### Applications
+- **Format**: `{platform}-{function}`
+- **Examples**:
+  - `macos-f90hub` - macOS F90 Hub application
+  - `ios-f90mobile` - iOS F90 Mobile application
 
-## Setup
+### App Code Organization
+- **Views**: All SwiftUI views in `views/` directory
+- **ViewModels**: All view models in `viewmodels/` directory
+- **Widgets**: Reusable widget components in `widgets/` directory
+- **Naming**: `{Feature}View.swift`, `{Feature}ViewModel.swift`, `{Feature}Widget.swift`
 
-Each application should be opened in Xcode and configured to use the F90Shared package as a local dependency.
+### Shared Code
+- **Package name**: `F90Shared`
+- **All types are public**: Services, models, and UI components are marked `public` for cross-module access
+- **Swift Package Manager**: Shared code is packaged for easy integration
 
+## Current Status
+
+### ✅ Completed
+- Directory structure standardized and organized
+- All shared code moved to `shared/Sources/F90Shared/` Swift package
+- All app code organized into `views/`, `viewmodels/`, and `widgets/` directories
+- App renamed from `FMHubControl` to `F90Hub`
+- Xcode project updated with correct references
+- Package dependency configured and linked
+- All types made public for cross-module access
+- Deployment target set to macOS 14.0+
+- Old directories and files cleaned up
+
+### Package Configuration
+- **macOS**: 14.0+
+- **iOS**: 16.0+
+- **All types public**: Services, models, and UI components are accessible from apps
+
+## Usage
+
+### In App Code
+All app files that use shared code should import the package:
+
+```swift
+import F90Shared
+```
+
+### Available Shared Types
+
+**Services:**
+- `KalshiService`, `KalshiServiceType`
+- `FredService`, `FredServiceType`
+- `SystemHealthService`, `SystemHealthServiceType`
+- `MarketStatusService`, `MarketStatusServiceType`
+
+**Models:**
+- `KalshiMarketSummary`, `KalshiMarketDetail`, `KalshiUserAccount`, `KalshiUserBalance`, `KalshiPosition`
+- `EconomicRelease`
+- `SystemHealth`, `WebHealth`, `RegressionTestResults`
+- `MarketStatus`, `MarketOpenTimeCalculator`
+
+**UI Components:**
+- `ThemeManager`
+- `AppTheme`
+
+## Building
+
+### Shared Package
+```bash
+cd clients/shared
+swift build
+```
+
+### macOS App
+1. Open `apps/macos-f90hub/F90Hub.xcodeproj` in Xcode
+2. Ensure package dependency is resolved (File → Packages → Resolve Package Versions)
+3. Build: `Cmd+B`
+4. Run: `Cmd+R`
+
+## Notes
+
+- **No functionality changed**: All code reorganization maintains existing functionality
+- **Shared code accessible**: Both macOS and iOS apps can use the same shared code
+- **Standardized naming**: All directories follow consistent naming patterns
+- **Swift Package Manager**: Shared code is packaged for easy integration
+- **Assets shared**: Logo files and other assets are available to both platforms
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. **Package not found**: 
+   - File → Packages → Resolve Package Versions
+   - Verify `clients/shared/` path is correct in Xcode project settings
+
+2. **Types not accessible**:
+   - Ensure `import F90Shared` is present
+   - Verify the package builds: `cd clients/shared && swift build`
+
+3. **Build errors**:
+   - Clean build folder: `Shift+Cmd+K`
+   - Restart Xcode if package resolution issues persist
+
+4. **Missing destinations**:
+   - Verify deployment target matches your system (macOS 14.0+)
+   - Check Xcode → Settings → Platforms for installed SDKs

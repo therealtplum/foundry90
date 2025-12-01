@@ -88,6 +88,7 @@ Use the provided script to reload environment variables into your shell:
 | **api** | `fmhub_api` | 3000:3000 | Rust/Axum API server |
 | **web** | `fmhub_web` | 3001:3000 | Next.js frontend |
 | **etl** | `fmhub_etl` | N/A | Python ETL container (one-shot jobs) |
+| **hadron** | `fmhub_hadron` | 3002:3002 | Hadron real-time intelligence engine |
 
 ### Service Dependencies
 
@@ -95,6 +96,7 @@ Use the provided script to reload environment variables into your shell:
 web → api → db, redis
 api → db, redis
 etl → db
+hadron → db, redis
 ```
 
 ---
@@ -565,7 +567,6 @@ alias f90-panic='cd "$FOUNDRY90_ROOT" && ./ops/panic.sh'
 ## Additional Resources
 
 - **Architecture Docs:** `docs/architecture.md`
-- **Design Decisions:** `docs/design-decisions.md`
 - **Scope:** `docs/scope.md`
 - **Ops Scripts:** `ops/` directory
 - **Makefile:** `Makefile` (database utilities)

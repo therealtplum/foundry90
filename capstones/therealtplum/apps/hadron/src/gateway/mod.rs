@@ -78,21 +78,33 @@ impl Gateway {
             );
 
             // Record the order intent
+            // Convert enums to strings matching database enum types
+            let side_str = match intent.side {
+                crate::schemas::OrderSide::Buy => "Buy",
+                crate::schemas::OrderSide::Sell => "Sell",
+            };
+            let order_type_str = match intent.order_type {
+                crate::schemas::OrderType::Market => "Market",
+                crate::schemas::OrderType::Limit => "Limit",
+                crate::schemas::OrderType::Stop => "Stop",
+                crate::schemas::OrderType::StopLimit => "StopLimit",
+            };
+            
             sqlx::query(
                 r#"
                 INSERT INTO hadron_order_intents (
                     id, instrument_id, strategy_id, side, quantity,
                     order_type, limit_price, timestamp, metadata
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                VALUES ($1, $2, $3, $4::order_side_enum, $5, $6::order_type_enum, $7, $8, $9)
                 "#,
             )
             .bind(intent.id)
             .bind(intent.instrument_id)
             .bind(&intent.strategy_id)
-            .bind(format!("{:?}", intent.side))
+            .bind(side_str)
             .bind(intent.quantity)
-            .bind(format!("{:?}", intent.order_type))
+            .bind(order_type_str)
             .bind(intent.limit_price)
             .bind(intent.timestamp)
             .bind(&intent.metadata)
@@ -113,13 +125,21 @@ impl Gateway {
             };
 
             // Record execution
+            // Convert enum to string matching database enum type
+            let status_str = match execution.status {
+                crate::schemas::ExecutionStatus::Filled => "Filled",
+                crate::schemas::ExecutionStatus::PartiallyFilled => "PartiallyFilled",
+                crate::schemas::ExecutionStatus::Rejected => "Rejected",
+                crate::schemas::ExecutionStatus::Cancelled => "Cancelled",
+            };
+            
             sqlx::query(
                 r#"
                 INSERT INTO hadron_order_executions (
                     order_intent_id, instrument_id, venue, executed_at,
                     executed_price, executed_quantity, status, venue_order_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7::execution_status_enum, $8)
                 "#,
             )
             .bind(execution.order_intent_id)
@@ -128,7 +148,7 @@ impl Gateway {
             .bind(execution.executed_at)
             .bind(execution.executed_price)
             .bind(execution.executed_quantity)
-            .bind(format!("{:?}", execution.status))
+            .bind(status_str)
             .bind(execution.venue_order_id.as_ref())
             .execute(&self.db_pool)
             .await?;

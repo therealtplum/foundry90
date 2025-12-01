@@ -41,24 +41,71 @@ def get_conn():
 # ----------------------------------------------------------------------
 
 
-def fetch_instruments_for_prices(cur):
+def get_latest_price_date(cur) -> str | None:
     """
-    Get a list of (instrument_id, ticker) from instruments_useq.
-
-    We use the curated US equity universe view so we don't pull for OTC/grey junk.
+    Find the most recent price_date in instrument_price_daily for our data source.
+    Returns a date string (YYYY-MM-DD) or None if table is empty.
     """
     cur.execute(
         """
-        SELECT id, ticker
-        FROM instruments_useq
-        WHERE status = 'active'
-        ORDER BY ticker
-        LIMIT %s;
+        SELECT MAX(price_date)
+        FROM instrument_price_daily
+        WHERE data_source = %s;
         """,
-        (MAX_INSTRUMENTS,),
+        (DATA_SOURCE,),
     )
+    row = cur.fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
+def fetch_instruments_for_prices(cur):
+    """
+    Get a list of (instrument_id, ticker) from instruments_useq that need price data.
+
+    We only fetch instruments that either:
+    1. Don't have any price data, OR
+    2. Don't have price data for the most recent date we've seen
+
+    This avoids re-querying Polygon for instruments we already have recent data for.
+    """
+    latest_date = get_latest_price_date(cur)
+    
+    if latest_date is None:
+        # No price data exists yet, fetch all instruments
+        log.info("No existing price data found; fetching prices for all instruments")
+        cur.execute(
+            """
+            SELECT id, ticker
+            FROM instruments_useq
+            WHERE status = 'active'
+            ORDER BY ticker
+            LIMIT %s;
+            """,
+            (MAX_INSTRUMENTS,),
+        )
+    else:
+        # Only fetch instruments missing price data for the latest date
+        log.info(f"Latest price_date in DB: {latest_date}. Fetching only instruments missing this date.")
+        cur.execute(
+            """
+            SELECT i.id, i.ticker
+            FROM instruments_useq i
+            WHERE i.status = 'active'
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM instrument_price_daily p
+                  WHERE p.instrument_id = i.id
+                    AND p.price_date = %s
+                    AND p.data_source = %s
+              )
+            ORDER BY i.ticker
+            LIMIT %s;
+            """,
+            (latest_date, DATA_SOURCE, MAX_INSTRUMENTS),
+        )
+    
     rows = cur.fetchall()
-    log.info(f"Fetched {len(rows)} instruments from instruments_useq for price loading")
+    log.info(f"Fetched {len(rows)} instruments from instruments_useq that need price loading")
     return rows
 
 

@@ -1,8 +1,8 @@
 # Hadron Real-Time Intelligence System
 ## Status, Implementation Notes, and Roadmap
 
-**Last Updated:** November 29, 2025  
-**Branch:** `hadron-v2` (merged from `hadron-v1`)  
+**Last Updated:** December 2025  
+**Branch:** `main` (hadron-v2 merged)  
 **Phase:** Phase 1 Complete - Core Pipeline MVP + Kalshi Integration
 
 ---
