@@ -26,6 +26,7 @@ struct AccountBalancesWidget: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundColor(themeManager.textSoftColor)
+                .padding(.trailing, 36) // Space for ellipsis button (28px width + 8px spacing)
             )
         ) {
             if viewModel.accounts.isEmpty && !viewModel.isLoading {
@@ -226,7 +227,7 @@ struct AccountRow: View {
                     .font(.system(size: 12))
                     .foregroundColor(
                         account.status == .connected
-                            ? themeManager.statusUpColor
+                            ? Color.green
                             : themeManager.textSoftColor
                     )
             }

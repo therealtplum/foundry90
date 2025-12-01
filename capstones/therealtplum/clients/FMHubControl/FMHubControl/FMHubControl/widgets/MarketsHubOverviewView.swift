@@ -204,7 +204,7 @@ struct MarketsHubOverviewView: View {
                         HStack {
                             Spacer()
                             
-                            // Controls (top-right)
+                            // Controls (top-right, offset below header)
                             VStack(spacing: 8) {
                                 // Column span controls
                                 HStack(spacing: 4) {
@@ -283,9 +283,10 @@ struct MarketsHubOverviewView: View {
                         
                         Spacer()
                     }
-                    .padding(8)
+                    .padding(.top, 56) // Offset below header (header height ~48px + spacing)
+                    .padding(.trailing, 8)
                 } else {
-                    // Edit button - show on tap
+                    // Edit button (ellipsis) - show on tap, positioned furthest to the right
                     VStack {
                         HStack {
                             Spacer()
@@ -305,7 +306,8 @@ struct MarketsHubOverviewView: View {
                         
                         Spacer()
                     }
-                    .padding(8)
+                    .padding(.top, 8)
+                    .padding(.trailing, 8)
                 }
             },
             alignment: .topTrailing

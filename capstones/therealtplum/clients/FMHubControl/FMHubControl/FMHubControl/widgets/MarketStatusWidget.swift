@@ -19,25 +19,20 @@ struct MarketStatusWidget: View {
             isLoading: viewModel.isLoading,
             errorMessage: viewModel.errorMessage,
             actions: AnyView(
-                HStack(spacing: 12) {
-                    Toggle("Auto-refresh", isOn: $viewModel.autoRefresh)
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
-                    
-                    Button {
-                        Task { await viewModel.refresh() }
-                    } label: {
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .controlSize(.small)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 14))
-                        }
+                Button(action: {
+                    Task { await viewModel.refresh() }
+                }) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14))
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
+                .buttonStyle(.plain)
+                .foregroundColor(themeManager.textSoftColor)
+                .padding(.trailing, 36) // Space for ellipsis button (28px width + 8px spacing)
             )
         ) {
             if let status = viewModel.marketStatus {
@@ -45,12 +40,12 @@ struct MarketStatusWidget: View {
                     // Main status indicator
                     HStack(spacing: 16) {
                         Circle()
-                            .fill(status.isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                            .fill(status.isOpen ? Color.green : Color.red)
                             .frame(width: 16, height: 16)
                             .shadow(
                                 color: status.isOpen
-                                    ? themeManager.statusUpColor.opacity(0.5)
-                                    : themeManager.statusDownColor.opacity(0.5),
+                                    ? Color.green.opacity(0.5)
+                                    : Color.red.opacity(0.5),
                                 radius: 6
                             )
                         
@@ -157,12 +152,12 @@ struct MarketStatusWidget: View {
     private func assetClassRow(name: String, isOpen: Bool, detail: String?) -> some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(isOpen ? themeManager.statusUpColor : themeManager.statusDownColor)
+                .fill(isOpen ? Color.green : Color.red)
                 .frame(width: 10, height: 10)
                 .shadow(
                     color: isOpen
-                        ? themeManager.statusUpColor.opacity(0.5)
-                        : themeManager.statusDownColor.opacity(0.5),
+                        ? Color.green.opacity(0.5)
+                        : Color.red.opacity(0.5),
                     radius: 4
                 )
             
