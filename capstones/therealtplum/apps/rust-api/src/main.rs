@@ -20,6 +20,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 mod system_health;
 mod auth;
 mod kalshi;
+mod fred;
 
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
 use deadpool_redis::redis::AsyncCommands;
@@ -147,7 +148,7 @@ struct ChatMessage {
 impl ChatClient {
     fn from_env() -> Option<Self> {
         let api_key = env::var("OPENAI_API_KEY").ok()?;
-        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4.1-mini".to_string());
+        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
 
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
@@ -166,32 +167,157 @@ impl ChatClient {
         instrument: &InstrumentDetail,
         kind: &str,
         horizon_days: i32,
+        db_pool: &PgPool,
     ) -> anyhow::Result<String> {
+        eprintln!("🚨🚨🚨 generate_insight CALLED: instrument_id={}, ticker={}, kind={}, horizon_days={} 🚨🚨🚨", instrument.id, instrument.ticker, kind, horizon_days);
+        info!(
+            "generate_insight called: instrument_id={}, ticker={}, kind={}, horizon_days={}",
+            instrument.id, instrument.ticker, kind, horizon_days
+        );
+        
         let system = match kind {
             "overview" => "You are a financial research assistant. Produce a concise overview of the instrument, including what it is, key characteristics, and why it might be interesting to an event-driven trader.",
-            "recent" => "You are a financial research assistant. Summarize the most important recent developments, news, and catalysts for this instrument over the requested horizon.",
+            "recent" => "You are a financial research assistant. Your task is to summarize recent developments for this instrument. CRITICAL: If recent news articles are provided in the user's message, you MUST use those articles as the PRIMARY source for your summary. Reference specific headlines, dates, and key details from the provided news articles. Do not make up or reference information that is not in the provided news articles.",
             _ => "You are a financial research assistant. Provide concise, relevant information about the instrument.",
         };
 
-        let prompt = format!(
-            "Instrument: {name} ({ticker})\n\
-             Asset class: {asset_class}\n\
-             Exchange: {exchange}\n\
-             Region: {region:?}\n\
-             Country: {country:?}\n\
-             Horizon: last {horizon_days} days.\n\n\
-             Write a short, focused {kind} insight, suitable for a dashboard. \
-             Use markdown, keep it under ~300 words, and avoid fluff.",
-            name = instrument.name,
-            ticker = instrument.ticker,
-            asset_class = instrument.asset_class,
-            exchange = instrument
-                .exchange
-                .clone()
-                .unwrap_or_else(|| "UNKNOWN".to_string()),
-            region = instrument.region,
-            country = instrument.country_code,
+        // Fetch recent news articles for this instrument
+        info!(
+            "🔍 Fetching news for instrument_id={}, horizon_days={}, db_pool={:p}",
+            instrument.id, horizon_days, db_pool as *const _
         );
+        let news_query_result = sqlx::query_as::<_, NewsArticleDto>(
+            r#"
+            SELECT
+                id,
+                source,
+                publisher,
+                headline,
+                summary,
+                url,
+                published_at
+            FROM news_articles
+            WHERE instrument_id = $1
+              AND published_at >= NOW() - INTERVAL '1 day' * $2
+            ORDER BY published_at DESC
+            LIMIT 10
+            "#,
+        )
+        .bind(instrument.id)
+        .bind(horizon_days);
+        
+        eprintln!("🚨🚨🚨 EXECUTING NEWS QUERY: instrument_id={}, horizon_days={} 🚨🚨🚨", instrument.id, horizon_days);
+        info!("🔍 Executing news query with instrument_id={}, horizon_days={}", instrument.id, horizon_days);
+        let news_context = match news_query_result
+        .fetch_all(db_pool)
+        .await
+        {
+            Ok(articles) if !articles.is_empty() => {
+                eprintln!("🚨🚨🚨 FOUND {} NEWS ARTICLES for instrument_id={} 🚨🚨🚨", articles.len(), instrument.id);
+                info!(
+                    "Found {} news articles for instrument_id={}, kind={}",
+                    articles.len(),
+                    instrument.id,
+                    kind
+                );
+                let mut news_text = String::from("\n\n=== RECENT NEWS ARTICLES (USE THESE AS YOUR PRIMARY SOURCE) ===\n");
+                for (idx, article) in articles.iter().take(5).enumerate() {
+                    news_text.push_str(&format!(
+                        "\n**Article {}: {}**\nPublished by: {}\nSummary: {}\n",
+                        idx + 1,
+                        article.headline,
+                        article
+                            .publisher
+                            .as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or("Unknown"),
+                        article
+                            .summary
+                            .as_ref()
+                            .map(|s| s.as_str())
+                            .unwrap_or("No summary")
+                    ));
+                }
+                news_text.push_str("\n=== END OF NEWS ARTICLES ===\n");
+                news_text.push_str("\nINSTRUCTIONS: Base your recent insights summary primarily on the news articles above. Reference specific headlines, dates, and developments from these articles. Do not include information that is not mentioned in these articles.\n");
+                news_text
+            }
+            Ok(_) => {
+                info!(
+                    "No news articles found for instrument_id={}, kind={}",
+                    instrument.id, kind
+                );
+                String::new()
+            }
+            Err(e) => {
+                error!(
+                    "Failed to fetch news for instrument_id={}, kind={}: {}",
+                    instrument.id, kind, e
+                );
+                String::new()
+            }
+        };
+
+        eprintln!("🚨🚨🚨 NEWS CONTEXT: length={}, is_empty={} 🚨🚨🚨", news_context.len(), news_context.is_empty());
+        if !news_context.is_empty() {
+            eprintln!("🚨🚨🚨 NEWS CONTEXT PREVIEW (first 500 chars): {} 🚨🚨🚨", &news_context[..news_context.len().min(500)]);
+        } else {
+            eprintln!("🚨🚨🚨 WARNING: NEWS CONTEXT IS EMPTY! 🚨🚨🚨");
+        }
+        info!(
+            "News context length: {} chars, is_empty: {}",
+            news_context.len(),
+            news_context.is_empty()
+        );
+        if !news_context.is_empty() {
+            info!("News context preview: {}", &news_context[..news_context.len().min(200)]);
+        }
+        
+        let prompt = if !news_context.is_empty() {
+            format!(
+                "Instrument: {name} ({ticker})\n\
+                 Asset class: {asset_class}\n\
+                 Exchange: {exchange}\n\
+                 Region: {region:?}\n\
+                 Country: {country:?}\n\
+                 Horizon: last {horizon_days} days\n\
+                 {news_context}\n\n\
+                 TASK: Write a short, focused recent insights summary based on the news articles provided above. \
+                 Use markdown, keep it under ~300 words. \
+                 IMPORTANT: Your summary must be based primarily on the news articles provided. Reference specific headlines and key developments from those articles.",
+                name = instrument.name,
+                ticker = instrument.ticker,
+                asset_class = instrument.asset_class,
+                exchange = instrument
+                    .exchange
+                    .clone()
+                    .unwrap_or_else(|| "UNKNOWN".to_string()),
+                region = instrument.region,
+                country = instrument.country_code,
+                news_context = news_context,
+            )
+        } else {
+            format!(
+                "Instrument: {name} ({ticker})\n\
+                 Asset class: {asset_class}\n\
+                 Exchange: {exchange}\n\
+                 Region: {region:?}\n\
+                 Country: {country:?}\n\
+                 Horizon: last {horizon_days} days\n\n\
+                 Write a short, focused {kind} insight, suitable for a dashboard. \
+                 Use markdown, keep it under ~300 words, and avoid fluff.",
+                name = instrument.name,
+                ticker = instrument.ticker,
+                asset_class = instrument.asset_class,
+                exchange = instrument
+                    .exchange
+                    .clone()
+                    .unwrap_or_else(|| "UNKNOWN".to_string()),
+                region = instrument.region,
+                country = instrument.country_code,
+                kind = kind,
+            )
+        };
 
         let body = json!({
             "model": self.model,
@@ -239,7 +365,35 @@ async fn main() -> anyhow::Result<()> {
         .with(fmt::layer())
         .init();
 
-    dotenvy::dotenv().ok();
+    // Try to load .env from project root (parent directory)
+    // First try current directory, then parent directory
+    let mut env_loaded = dotenvy::dotenv().is_ok();
+    if !env_loaded {
+        // If not found in current dir, try parent directory (project root)
+        let parent_env = std::path::Path::new("../.env");
+        let grandparent_env = std::path::Path::new("../../.env");
+        if parent_env.exists() {
+            match dotenvy::from_path(parent_env) {
+                Ok(_) => {
+                    info!("Loaded .env from ../.env");
+                    env_loaded = true;
+                }
+                Err(e) => info!("Failed to load .env from ../.env: {}", e),
+            }
+        }
+        if !env_loaded && grandparent_env.exists() {
+            match dotenvy::from_path(grandparent_env) {
+                Ok(_) => {
+                    info!("Loaded .env from ../../.env");
+                    env_loaded = true;
+                }
+                Err(e) => info!("Failed to load .env from ../../.env: {}", e),
+            }
+        }
+        if !env_loaded {
+            info!("No .env file found in current, parent, or grandparent directory");
+        }
+    }
 
     // Redis
     let redis_url = env::var("REDIS_URL")
@@ -293,16 +447,17 @@ async fn main() -> anyhow::Result<()> {
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
         .route("/market/status", get(get_market_status_handler))
-        // Kalshi API endpoints
+        // Kalshi endpoints
         .route("/kalshi/markets", get(kalshi::list_kalshi_markets_handler))
         .route("/kalshi/markets/{ticker}", get(kalshi::get_kalshi_market_handler))
         .route("/kalshi/users/{user_id}/account", get(kalshi::get_kalshi_user_account_handler))
-        .route("/kalshi/users/{user_id}/account/refresh", get(kalshi::refresh_kalshi_user_account_handler))
         .route("/kalshi/users/{user_id}/balance", get(kalshi::get_kalshi_user_balance_handler))
         .route("/kalshi/users/{user_id}/positions", get(kalshi::get_kalshi_user_positions_handler))
         // Optional: Add auth middleware here if you want to protect these routes
         // Example: .layer(middleware::from_fn(auth::validate_jwt))  // Requires auth
         // Example: .layer(middleware::from_fn(auth::optional_validate_jwt))  // Optional auth
+        // FRED endpoints
+        .route("/fred/releases/upcoming", get(fred::get_upcoming_releases_handler))
         .with_state(state)
         .layer(cors);
 
@@ -513,46 +668,54 @@ async fn get_instrument_insight_handler(
     let ttl_seconds: u64 = 3600;
 
     // 0. Redis cache
-    if let Ok(mut conn) = state.redis_pool.get().await {
-        match conn.get::<_, Option<String>>(&cache_key).await {
-            Ok(Some(cached)) => {
-                match serde_json::from_str::<InstrumentInsightRecord>(&cached) {
-                    Ok(rec) => {
-                        info!(
-                            "instrument_insight cache hit (key={}, id={}, kind={})",
-                            cache_key, id, kind
-                        );
-                        return (
-                            StatusCode::OK,
-                            Json(json!({
-                                "source": "cache",
-                                "insight": rec,
-                            })),
-                        );
-                    }
-                    Err(err) => {
-                        error!(
-                            "instrument_insight: failed to deserialize cached value (key={}): {}",
-                            cache_key, err
-                        );
+    // Skip Redis cache for "recent" insights to ensure we check for newer news in DB
+    if kind != "recent" {
+        if let Ok(mut conn) = state.redis_pool.get().await {
+            match conn.get::<_, Option<String>>(&cache_key).await {
+                Ok(Some(cached)) => {
+                    match serde_json::from_str::<InstrumentInsightRecord>(&cached) {
+                        Ok(rec) => {
+                            info!(
+                                "instrument_insight cache hit (key={}, id={}, kind={})",
+                                cache_key, id, kind
+                            );
+                            return (
+                                StatusCode::OK,
+                                Json(json!({
+                                    "source": "cache",
+                                    "insight": rec,
+                                })),
+                            );
+                        }
+                        Err(err) => {
+                            error!(
+                                "instrument_insight: failed to deserialize cached value (key={}): {}",
+                                cache_key, err
+                            );
+                        }
                     }
                 }
+                Ok(None) => {
+                    info!(
+                        "instrument_insight cache miss (key={}): no value present",
+                        cache_key
+                    );
+                }
+                Err(err) => {
+                    info!(
+                        "instrument_insight cache GET error (key={}): {}",
+                        cache_key, err
+                    );
+                }
             }
-            Ok(None) => {
-                info!(
-                    "instrument_insight cache miss (key={}): no value present",
-                    cache_key
-                );
-            }
-            Err(err) => {
-                info!(
-                    "instrument_insight cache GET error (key={}): {}",
-                    cache_key, err
-                );
-            }
+        } else {
+            error!("instrument_insight: failed to get Redis connection from pool");
         }
     } else {
-        error!("instrument_insight: failed to get Redis connection from pool");
+        info!(
+            "Skipping Redis cache for 'recent' insight (instrument_id={}) to check for newer news",
+            id
+        );
     }
 
     // 1. DB cache
@@ -577,22 +740,97 @@ async fn get_instrument_insight_handler(
 
     match cached_db {
         Ok(Some(rec)) => {
-            // best-effort backfill to Redis
-            if let Ok(payload) = serde_json::to_string(&rec) {
-                if let Ok(mut conn) = state.redis_pool.get().await {
-                    let _ = conn
-                        .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
-                        .await;
-                }
-            }
+            // For "recent" insights, check if there's newer news than when the insight was created
+            // If so, we should regenerate to include the latest news
+            if kind == "recent" {
+                let has_newer_news = sqlx::query_scalar::<_, bool>(
+                    r#"
+                    SELECT EXISTS(
+                        SELECT 1
+                        FROM news_articles
+                        WHERE instrument_id = $1
+                          AND published_at > $2
+                          AND published_at >= NOW() - INTERVAL '1 day' * $3
+                        LIMIT 1
+                    )
+                    "#,
+                )
+                .bind(id)
+                .bind(rec.created_at)
+                .bind(horizon_days)
+                .fetch_one(&state.db_pool)
+                .await;
 
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "source": "cache",
-                    "insight": rec,
-                })),
-            );
+                match has_newer_news {
+                    Ok(true) => {
+                        info!(
+                            "Cached 'recent' insight for instrument_id={id} is stale (newer news available); regenerating."
+                        );
+                        // Fall through to LLM generation
+                    }
+                    Ok(false) => {
+                        // No newer news, use cached insight
+                        info!(
+                            "Using cached 'recent' insight for instrument_id={id} (no newer news available)."
+                        );
+                        // best-effort backfill to Redis
+                        if let Ok(payload) = serde_json::to_string(&rec) {
+                            if let Ok(mut conn) = state.redis_pool.get().await {
+                                let _ = conn
+                                    .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                                    .await;
+                            }
+                        }
+
+                        return (
+                            StatusCode::OK,
+                            Json(json!({
+                                "source": "cache",
+                                "insight": rec,
+                            })),
+                        );
+                    }
+                    Err(err) => {
+                        error!(
+                            "Failed to check for newer news for instrument_id={id}: {err}. Proceeding with cache."
+                        );
+                        // On error, use cached insight
+                        if let Ok(payload) = serde_json::to_string(&rec) {
+                            if let Ok(mut conn) = state.redis_pool.get().await {
+                                let _ = conn
+                                    .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                                    .await;
+                            }
+                        }
+
+                        return (
+                            StatusCode::OK,
+                            Json(json!({
+                                "source": "cache",
+                                "insight": rec,
+                            })),
+                        );
+                    }
+                }
+            } else {
+                // For non-"recent" insights, use cache as normal
+                // best-effort backfill to Redis
+                if let Ok(payload) = serde_json::to_string(&rec) {
+                    if let Ok(mut conn) = state.redis_pool.get().await {
+                        let _ = conn
+                            .set_ex::<_, _, ()>(&cache_key, payload, ttl_seconds)
+                            .await;
+                    }
+                }
+
+                return (
+                    StatusCode::OK,
+                    Json(json!({
+                        "source": "cache",
+                        "insight": rec,
+                    })),
+                );
+            }
         }
         Ok(None) => {
             info!(
@@ -656,11 +894,23 @@ async fn get_instrument_insight_handler(
     };
 
     // Call LLM
+    eprintln!("🚨🚨🚨 ABOUT TO CALL generate_insight: instrument_id={}, kind={}, horizon_days={} 🚨🚨🚨", instrument.id, kind, horizon_days);
+    info!(
+        "About to call generate_insight for instrument_id={}, kind={}, horizon_days={}",
+        instrument.id, kind, horizon_days
+    );
     let text = match chat_client
-        .generate_insight(&instrument, &kind, horizon_days)
+        .generate_insight(&instrument, &kind, horizon_days, &state.db_pool)
         .await
     {
-        Ok(t) => t,
+        Ok(t) => {
+            eprintln!("🚨🚨🚨 generate_insight COMPLETED: instrument_id={}, response_length={} 🚨🚨🚨", instrument.id, t.len());
+            info!(
+                "generate_insight completed successfully for instrument_id={}, kind={}, response_length={}",
+                instrument.id, kind, t.len()
+            );
+            t
+        }
         Err(err) => {
             error!(
                 "LLM generation failed for instrument_id={id}, kind={kind}: {err}"
@@ -861,6 +1111,7 @@ async fn get_focus_ticker_strip(
 }
 
 /// Market status DTO
+/// Note: Field names match database columns (snake_case) and Swift expects snake_case in JSON
 #[derive(Debug, Serialize, FromRow)]
 struct MarketStatusDto {
     server_time: DateTime<Utc>,

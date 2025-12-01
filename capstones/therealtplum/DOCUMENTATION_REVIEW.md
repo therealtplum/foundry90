@@ -1,6 +1,7 @@
 # Documentation Review - Foundry90 Capstone
 
 **Review Date:** December 2025  
+**Last Updated:** December 2025 (verified current state)  
 **Scope:** All `.md` files in `capstones/` directory  
 **Reviewer:** AI Assistant  
 
@@ -47,18 +48,15 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 
 ### 🔴 Critical Issues (Needs Immediate Fix)
 
-#### 1. **runbook_v2.md - Missing Hadron Service**
+#### 1. **runbook_v2.md - Hadron Service** ✅ **FIXED**
 **Location:** `capstones/therealtplum/docs/runbook_v2.md`  
-**Issue:** Services table (lines 84-91) is missing the `hadron` service that exists in `docker-compose.yml`
+**Status:** Hadron service is now correctly included in the services table (line 91)
 
 **Current State:**
 - docker-compose.yml has: db, redis, api, etl, **hadron**, web
-- runbook_v2.md lists: db, redis, api, web, etl
+- runbook_v2.md lists: db, redis, api, web, etl, **hadron** ✅
 
-**Fix:** Add hadron service to the services table:
-```markdown
-| **hadron** | `fmhub_hadron` | 3002:3002 | Hadron real-time intelligence engine |
-```
+**Note:** This issue was previously identified and has been resolved. The runbook now accurately reflects all services.
 
 #### 2. **BRANCH_MERGE_STRATEGY.md - Completely Outdated**
 **Location:** `capstones/therealtplum/docs/BRANCH_MERGE_STRATEGY.md`  
@@ -166,7 +164,7 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 2. **scope.md** - Accurate, comprehensive project scope
 3. **auth0_guide.md** - Accurate, comprehensive guide
 4. **third_party_tools.md** - Accurate, comprehensive reference
-5. **runbook_v2.md** - Mostly accurate, except missing hadron service
+5. **runbook_v2.md** - ✅ Accurate, includes all services including hadron
 6. **Hadron README.md** - Accurate service overview
 7. **KALSHI_INTEGRATION_GUIDE.md** - Comprehensive and accurate
 8. **KALSHI_WEBSOCKET_PROTOCOL.md** - Accurate protocol reference
@@ -213,7 +211,7 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 
 ### Immediate (Fix Inaccuracies)
 
-1. ✅ Add Hadron service to runbook_v2.md services table
+1. ✅ Add Hadron service to runbook_v2.md services table (COMPLETED - already fixed)
 2. ✅ Archive or delete BRANCH_MERGE_STRATEGY.md
 3. ✅ Archive MERGE_READINESS_ASSESSMENT.md
 4. ✅ Update HADRON_STATUS.md branch reference
@@ -245,7 +243,7 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 | third_party_tools.md | ✅ | Accurate | None |
 | BRANCH_MERGE_STRATEGY.md | 🔴 | Outdated | Archive/delete |
 | runbook_v1.md | 🟡 | Superseded | Archive/deprecate |
-| runbook_v2.md | 🟡 | Missing hadron | Add hadron service |
+| runbook_v2.md | ✅ | Accurate | None |
 | hadron/README.md | ✅ | Accurate | None |
 | hadron/docs/README.md | ✅ | Accurate | None |
 | KALSHI_INTEGRATION_GUIDE.md | ✅ | Accurate | None |
@@ -270,9 +268,9 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 ## Summary Statistics
 
 - **Total Files Reviewed:** 21
-- **Accurate:** 15 (71%)
-- **Minor Issues:** 4 (19%)
-- **Critical Issues:** 3 (14%)
+- **Accurate:** 16 (76%)
+- **Minor Issues:** 3 (14%)
+- **Critical Issues:** 2 (10%)
 - **Empty Templates:** 2 (10%)
 
 **Overall Assessment:** Documentation is generally accurate and comprehensive. Main issues are outdated branch references and missing service in runbook. Most documentation serves its purpose well.
@@ -283,7 +281,7 @@ Reviewed 21 markdown documentation files across the capstone project. Found seve
 
 ### ✅ Completed
 
-1. **Added Hadron service to runbook_v2.md** - Added hadron service to services table and dependencies
+1. **Added Hadron service to runbook_v2.md** - ✅ Hadron service was already added to services table and dependencies (verified current state)
 2. **Updated HADRON_STATUS.md branch reference** - Changed from `hadron-v2` to `main` (merged)
 3. **Added deprecation notice to runbook_v1.md** - Added warning that it's superseded by v2
 4. **Added notes to architecture.md** - Points to actual architecture documentation
@@ -329,4 +327,21 @@ The following files have been **deleted** as part of cleanup:
 - ✅ **`docs/BRANCH_MERGE_STRATEGY.md`** - Outdated, merge completed
 
 These files are no longer present in the repository. The runbook_v2.md has been updated to remove the reference to design-decisions.md.
+
+## Recent Changes (December 2025)
+
+### Clients Directory Reorganization
+- ✅ **Clients directory reorganized** - Standardized naming and structure:
+  - `FMHubControl/` → `apps/macos-f90hub/F90Hub/`
+  - Shared code moved to `clients/shared/` Swift Package (`F90Shared`)
+  - iOS app structure: `apps/ios-f90mobile/F90Mobile/`
+  - All types made public for cross-module access
+  - Deployment target updated to macOS 14.0+
+  - See `clients/README.md` for current structure
+
+### Documentation Status
+- ✅ All three root markdown files reviewed and verified accurate:
+  - `DOCUMENTATION_REVIEW.md` - Updated to reflect current state
+  - `TESTING_GUIDE.md` - Accurate, includes all services
+  - `PERFORMANCE_REVIEW.md` - Accurate historical report
 

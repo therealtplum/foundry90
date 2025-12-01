@@ -1,15 +1,31 @@
-import { getInstrumentById } from "../../../lib/api";
-import { InstrumentDetailView } from "../../../components/instruments/InstrumentDetailView";
-
-export const dynamic = "force-dynamic";
+// Instrument Detail - Coming Soon (hidden until ready for production)
+import Link from "next/link";
 
 interface Props {
   params: { id: string };
 }
 
-export default async function InstrumentDetailPage({ params }: Props) {
-  const id = Number(params.id);
-  const instrument = await getInstrumentById(id);
-
-  return <InstrumentDetailView instrument={instrument} />;
+export default function InstrumentDetailPage({ params }: Props) {
+  return (
+    <main className="f90-page">
+      <section className="f90-hero" style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div className="f90-hero-inner" style={{ textAlign: "center" }}>
+          <h1 className="f90-hero-title" style={{ marginBottom: "1rem" }}>
+            <span className="f90-type">Instrument Details</span>
+          </h1>
+          <p className="f90-hero-subtitle" style={{ marginBottom: "2rem" }}>
+            Coming soon. This feature is under development.
+          </p>
+          <div className="f90-hero-actions">
+            <Link href="/" className="f90-btn f90-btn-primary">
+              Back to Home
+            </Link>
+            <Link href="/capstones" className="f90-btn f90-btn-ghost">
+              Explore capstones
+            </Link>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
 }
