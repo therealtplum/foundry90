@@ -53,7 +53,7 @@
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "FOUNDRY90_ROOT"
-            value = "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum"
+            value = ""
             isEnabled = "YES">
          </EnvironmentVariable>
          <EnvironmentVariable
