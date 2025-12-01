@@ -41,7 +41,7 @@ services:
 
       # LLM insights
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: gpt-4.1-mini
+      OPENAI_MODEL: gpt-4o-mini
 
       # System-health → frontend health check
       FRONTEND_HEALTH_URL_LOCAL: "http://fmhub_web:3000/api/version"
@@ -54,6 +54,9 @@ services:
 
       # Allow you to bypass Vercel comparison if needed
       SKIP_VERCEL_COMPARE: ${SKIP_VERCEL_COMPARE}
+
+      # FRED API
+      FRED_API_KEY: ${FRED_API_KEY}
     volumes:
       - ./logs:/app/logs:ro
     ports:
@@ -75,8 +78,18 @@ services:
       PRICE_PREV_MAX_INSTRUMENTS: ${PRICE_PREV_MAX_INSTRUMENTS:-2000}
       PRICE_PREV_SLEEP_SECS: ${PRICE_PREV_SLEEP_SECS:-0.02}
       PRICE_PREV_BATCH_SIZE: ${PRICE_PREV_BATCH_SIZE:-500}
+      SAMPLE_TICKERS_OUTPUT_PATH: /export/web-data/sample_tickers.json
+      # Kalshi API credentials (for local testing)
+      KALSHI_API_KEY_ID: ${KALSHI_API_KEY_ID}
+      KALSHI_API_SECRET: ${KALSHI_API_SECRET}
+      KALSHI_API_SECRET_FILE: ${KALSHI_API_SECRET_FILE}
+      KALSHI_USER_ID: ${KALSHI_USER_ID}
+      KALSHI_USE_ENV_CREDS: ${KALSHI_USE_ENV_CREDS:-false}
+      KALSHI_BASE_URL: ${KALSHI_BASE_URL:-https://api.elections.kalshi.com/trade-api/v2}
+      KALSHI_CREDENTIALS_ENCRYPTION_KEY: ${KALSHI_CREDENTIALS_ENCRYPTION_KEY}
     volumes:
       - ./apps/web/data:/export/web-data
+      - ./.kalshi_keys/etl.pem:/app/.kalshi_keys/etl.pem:ro
     # Do nothing by default; we trigger jobs with `docker compose run --rm etl ...`
     command: ["sleep", "infinity"]
 
@@ -140,6 +153,10 @@ services:
     environment:
       # How the browser (on your Mac) talks to the Rust API
       NEXT_PUBLIC_API_BASE_URL: "http://localhost:3000"
+      
+      # How the Next.js server (inside Docker) talks to the Rust API
+      # Use Docker service name for internal communication
+      API_BASE_URL_INTERNAL: "http://api:3000"
 
       # For /api/version → URL field & prod canonical
       NEXT_PUBLIC_SITE_URL: "https://www.foundry90.com"

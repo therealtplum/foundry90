@@ -9,9 +9,15 @@ target/
 
 # ---- Python ----
 .venv/
+venv/
 __pycache__/
 *.py[cod]
 *.pyo
+
+# ---- Generated/temporary files ----
+ops/issues_analysis.json
+ops/pm_actions.json
+*.analysis.json
 
 # ---- OS / Editor ----
 .DS_Store
@@ -29,4 +35,8 @@ __pycache__/
 !**/node_modules/**/*.pem
 
 # ---- Personal reference docs (not for version control) ----
-docs/third_party_tools.mdncaa_ku_moneylines.json
+docs/third_party_tools.md
+docs/projectmanagement/
+
+# ---- Test output files ----
+ncaa_ku_moneylines.json

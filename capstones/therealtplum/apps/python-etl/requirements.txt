@@ -1,6 +1,5 @@
 requests
-psycopg[binary]
-python-dotenv
 psycopg2-binary
 redis
+websockets
 cryptography

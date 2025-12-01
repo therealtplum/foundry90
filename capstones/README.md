@@ -26,37 +26,54 @@ This capstone emphasizes:
 
 ```
 apps/
-  web/         # Next.js frontend (to be initialized)
-  rust-api/    # Rust API service (to be scaffolded)
-  python-etl/  # ETL pipeline (to be scaffolded)
+  web/         # Next.js frontend (✅ implemented)
+  rust-api/    # Rust API service (✅ implemented)
+  python-etl/  # ETL pipeline (✅ implemented)
+  hadron/      # Real-time intelligence engine (✅ implemented)
 
 services/
-  db/          # DB migrations, seeds
-
-infra/
-  docker/      # Dockerfiles and infra notes
+  db/          # DB migrations, seeds (✅ implemented)
 
 docs/
   architecture.md
   design-decisions.md
+  runbook_v2.md  # Operations guide
 ```
 
 ---
 
 ## 🚧 Status
 
-This capstone is currently scaffolded and will be developed through the Foundry90 program milestones:
+**Current State:** ✅ **Operational** - Core system is built and running
 
-- Week 1–3 → foundations  
-- Week 4–6 → local monorepo + basic system  
-- Week 7–9 → cloud infra + ETL  
-- Week 10–12 → full integration + polish  
+**Implemented:**
+- ✅ Next.js frontend with instrument browser and dashboard
+- ✅ Rust API service with health endpoints and instrument data
+- ✅ Python ETL pipeline for Polygon data ingestion
+- ✅ Hadron real-time intelligence engine (Polygon + Kalshi integration)
+- ✅ PostgreSQL database with full schema
+- ✅ Redis caching layer
+- ✅ Docker Compose local development environment
+
+**See `docs/runbook_v2.md` for operations guide and how to run the system.**
 
 ---
 
-## 🧭 How to Run (placeholder)
+## 🧭 How to Run
 
-This will be updated once the initial services are in place.
+See `docs/runbook_v2.md` for complete operations guide.
+
+**Quick Start:**
+```bash
+cd capstones/therealtplum
+docker compose up -d
+./ops/run_full_etl.sh
+```
+
+**Services:**
+- Web UI: http://localhost:3001
+- API: http://localhost:3000
+- Hadron: http://localhost:3002/system/health
 
 ---
 

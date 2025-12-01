@@ -13,6 +13,9 @@ fi
 
 echo "[FMHub] $(TS) Starting stack..."
 
+# Rebuild API to ensure latest code is included
+docker compose build api
+
 docker compose up -d
 
 echo "[FMHub] $(TS) Stack started."
