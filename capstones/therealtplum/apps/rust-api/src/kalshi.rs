@@ -10,8 +10,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::FromRow;
-use std::env;
+use sqlx::{FromRow, Row};
 use tracing::{error, info};
 
 use crate::AppState;
@@ -306,28 +305,15 @@ pub async fn refresh_kalshi_user_account_handler(
     info!("Refreshing account data for user: {}", user_id);
     
     // Call Python script to refresh account data
-    // Use environment variable or try to find docker-compose.yml relative to current working directory
-    let compose_file = env::var("DOCKER_COMPOSE_FILE").unwrap_or_else(|_| {
-        // Try to find docker-compose.yml in common locations
-        let current_dir = env::current_dir().ok();
-        if let Some(dir) = current_dir {
-            let compose_path = dir.join("docker-compose.yml");
-            if compose_path.exists() {
-                return compose_path.to_string_lossy().to_string();
-            }
-        }
-        // Fallback: use docker-compose.yml in current directory
-        "docker-compose.yml".to_string()
-    });
-    
     let output = Command::new("docker")
         .args(&[
             "compose",
-            "-f", &compose_file,
+            "-f", "/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum/docker-compose.yml",
             "run", "--rm", "etl",
             "python", "-m", "etl.kalshi_refresh_account",
             &user_id,
         ])
+        .current_dir("/Users/thomasplummer/Documents/python/projects/foundry90/capstones/therealtplum")
         .output()
         .await;
     

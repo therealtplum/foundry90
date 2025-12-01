@@ -1,7 +1,8 @@
 use crate::schemas::{HadronTick, OrderExecution};
 use sqlx::PgPool;
 use tokio::sync::{broadcast, mpsc};
-use tracing::{debug, info};
+use tokio::time::{interval, Duration};
+use tracing::{debug, info, warn};
 
 /// Recorder that persists events to Postgres
 pub struct Recorder {
@@ -11,6 +12,7 @@ pub struct Recorder {
     // Batch writes for efficiency
     tick_batch: Vec<HadronTick>,
     batch_size: usize,
+    flush_interval: Duration,
 }
 
 impl Recorder {
@@ -25,12 +27,16 @@ impl Recorder {
             db_pool,
             tick_batch: Vec::new(),
             batch_size: 100, // Batch 100 ticks before writing
+            flush_interval: Duration::from_secs(5), // Flush every 5 seconds if batch not full
         }
     }
 
     /// Run the recorder loop
     pub async fn run(&mut self) -> anyhow::Result<()> {
-        info!("Hadron Recorder started");
+        info!("Hadron Recorder started (batch_size={}, flush_interval={}s)", 
+              self.batch_size, self.flush_interval.as_secs());
+
+        let mut flush_timer = interval(self.flush_interval);
 
         loop {
             tokio::select! {
@@ -41,10 +47,12 @@ impl Recorder {
                         }
                         Err(broadcast::error::RecvError::Closed) => {
                             info!("Tick broadcast channel closed");
+                            // Flush any remaining ticks before exiting
+                            self.flush_ticks().await?;
                             return Ok(());
                         }
                         Err(broadcast::error::RecvError::Lagged(n)) => {
-                            debug!("Recorder lagged by {} messages", n);
+                            warn!("Recorder lagged by {} messages - may need larger buffer or faster processing", n);
                             // Continue processing
                         }
                     }
@@ -52,6 +60,13 @@ impl Recorder {
                 execution_opt = self.execution_rx.recv() => {
                     if let Some(execution) = execution_opt {
                         self.handle_execution(execution).await?;
+                    }
+                }
+                _ = flush_timer.tick() => {
+                    // Time-based flush to prevent ticks sitting in memory too long
+                    if !self.tick_batch.is_empty() {
+                        debug!("Timer-based flush triggered with {} ticks", self.tick_batch.len());
+                        self.flush_ticks().await?;
                     }
                 }
             }
@@ -74,16 +89,32 @@ impl Recorder {
         }
 
         let batch = std::mem::take(&mut self.tick_batch);
+        let batch_len = batch.len();
 
-        // Batch insert ticks
-        for tick in batch {
+        // Use a transaction for better performance - all inserts in one transaction
+        // This is significantly faster than individual transactions
+        let mut tx = self.db_pool.begin().await?;
+
+        // Execute all inserts in the transaction
+        // While not as fast as a single multi-row INSERT, this is still much better
+        // than individual transactions and works reliably with sqlx
+        for tick in &batch {
+            // Convert enum to string for PostgreSQL enum type
+            // The enum values match the database enum: 'Trade', 'Quote', 'BookUpdate', 'Other'
+            let tick_type_str = match tick.tick_type {
+                crate::schemas::TickType::Trade => "Trade",
+                crate::schemas::TickType::Quote => "Quote",
+                crate::schemas::TickType::BookUpdate => "BookUpdate",
+                crate::schemas::TickType::Other => "Other",
+            };
+            
             sqlx::query(
                 r#"
                 INSERT INTO hadron_ticks (
                     instrument_id, timestamp, price, size, venue,
                     tick_type, source
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, $6::tick_type_enum, $7)
                 "#,
             )
             .bind(tick.instrument_id)
@@ -91,13 +122,15 @@ impl Recorder {
             .bind(tick.price)
             .bind(tick.size)
             .bind(&tick.venue)
-            .bind(format!("{:?}", tick.tick_type))
+            .bind(tick_type_str)
             .bind(&tick.source)
-            .execute(&self.db_pool)
+            .execute(&mut *tx)
             .await?;
         }
 
-        debug!("Flushed {} ticks to database", self.tick_batch.len());
+        tx.commit().await?;
+
+        debug!("Flushed {} ticks to database", batch_len);
 
         Ok(())
     }

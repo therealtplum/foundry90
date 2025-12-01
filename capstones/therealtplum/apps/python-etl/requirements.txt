@@ -1,2 +1,5 @@
 requests
 psycopg2-binary
+redis
+websockets
+cryptography
