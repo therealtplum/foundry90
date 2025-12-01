@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import Link from "next/link";
 
 type SubmissionState = "idle" | "submitting" | "success" | "error";
 
@@ -81,6 +82,12 @@ export default function ComingSoonPill() {
       </button>
       <div className="f90-coming-soon-header">
         <span className="f90-coming-soon-label">COMING SOON</span>
+      </div>
+
+      <div className="f90-coming-soon-hadron-link">
+        <Link href="/capstones/hadron" className="f90-coming-soon-hadron-pill">
+          LEARN ABOUT HADRON
+        </Link>
       </div>
 
       <div className="f90-coming-soon-body">

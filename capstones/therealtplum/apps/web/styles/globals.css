@@ -1098,11 +1098,39 @@ body.f90-theme-kawaii .f90-ticker-insight-name {
   background: rgba(5, 41, 16, 0.9);
   color: var(--f90-accent-mint);
   font-family: var(--f90-font-mono);
-  font-size: 13px;
+  font-size: 28px;
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   box-shadow: 0 0 12px rgba(67, 255, 138, 0.3);
+}
+
+.f90-coming-soon-hadron-link {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.f90-coming-soon-hadron-pill {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: var(--f90-radius-sm);
+  border: 1px solid rgba(67, 255, 138, 0.6);
+  background: rgba(5, 41, 16, 0.9);
+  color: var(--f90-accent-mint);
+  font-family: var(--f90-font-mono);
+  font-size: 9.75px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(67, 255, 138, 0.3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: opacity 160ms ease-out, box-shadow 160ms ease-out;
+}
+
+.f90-coming-soon-hadron-pill:hover {
+  opacity: 0.9;
+  box-shadow: 0 0 16px rgba(67, 255, 138, 0.5);
 }
 
 .f90-coming-soon-body {
@@ -1283,6 +1311,17 @@ body.f90-theme-kawaii .f90-coming-soon-label {
   background: #ffeff8;
   color: #d5287a;
   box-shadow: 0 0 12px rgba(255, 79, 163, 0.3);
+}
+
+body.f90-theme-kawaii .f90-coming-soon-hadron-pill {
+  border-color: rgba(255, 79, 163, 0.6);
+  background: #ffeff8;
+  color: #d5287a;
+  box-shadow: 0 0 12px rgba(255, 79, 163, 0.3);
+}
+
+body.f90-theme-kawaii .f90-coming-soon-hadron-pill:hover {
+  box-shadow: 0 0 16px rgba(255, 79, 163, 0.5);
 }
 
 body.f90-theme-kawaii .f90-coming-soon-input {
