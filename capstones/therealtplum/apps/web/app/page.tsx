@@ -19,10 +19,7 @@ export default function HomePage() {
           </p>
 
           <div className="f90-hero-actions">
-            <Link href="markets" className="f90-btn f90-btn-primary">
-              Markets Hub
-            </Link>
-            <Link href="capstones" className="f90-btn f90-btn-ghost">
+            <Link href="capstones" className="f90-btn f90-btn-primary">
               Explore capstones
             </Link>
           </div>
