@@ -81,6 +81,7 @@ pub async fn list_kalshi_markets_handler(
     let search = params.search.as_deref();
 
     // Use the database function for filtering
+    // Note: Cast limit and offset to i32 to match database function signature (integer type)
     let result = sqlx::query_as::<_, KalshiMarketSummary>(
         r#"
         SELECT * FROM get_kalshi_markets_filtered($1, $2, $3, $4, $5)
@@ -88,8 +89,8 @@ pub async fn list_kalshi_markets_handler(
     )
     .bind(category)
     .bind(status)
-    .bind(limit)
-    .bind(offset)
+    .bind(limit as i32)
+    .bind(offset as i32)
     .bind(search)
     .fetch_all(&state.db_pool)
     .await;

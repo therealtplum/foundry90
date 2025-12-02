@@ -624,7 +624,7 @@ echo "Test 14: Path Configuration Check"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Check shared Xcode scheme for hardcoded paths (user schemes in xcuserdata are gitignored)
-XCODE_SCHEME="${PROJECT_ROOT}/clients/FMHubControl/FMHubControl/FMHubControl.xcodeproj/xcshareddata/xcschemes/FMHubControl.xcscheme"
+XCODE_SCHEME="${PROJECT_ROOT}/clients/apps/macos-f90hub/F90Hub.xcodeproj/xcshareddata/xcschemes/F90Hub.xcscheme"
 if [ -f "$XCODE_SCHEME" ]; then
   # Check for hardcoded /Users/ paths (common macOS user path pattern)
   # Note: User-specific schemes in xcuserdata/ can have hardcoded paths (they're gitignored)
@@ -642,8 +642,42 @@ if [ -f "$XCODE_SCHEME" ]; then
   else
     log_warning "Shared Xcode scheme missing FOUNDRY90_ROOT environment variable"
   fi
+  
+  # Run Xcode tests if xcodebuild is available
+  if command -v xcodebuild >/dev/null 2>&1; then
+    XCODE_PROJECT="${PROJECT_ROOT}/clients/apps/macos-f90hub/F90Hub.xcodeproj"
+    SCHEME_NAME="F90Hub"
+    
+    log_info "Running Xcode tests for ${SCHEME_NAME}..."
+    # Run tests with xcodebuild (only test, don't build)
+    # Use -destination 'platform=macOS' for macOS apps
+    if xcodebuild test \
+      -project "$XCODE_PROJECT" \
+      -scheme "$SCHEME_NAME" \
+      -destination 'platform=macOS' \
+      -quiet \
+      >/tmp/xcode_test_output.log 2>&1; then
+      log_success "Xcode tests passed for ${SCHEME_NAME}"
+    else
+      TEST_EXIT_CODE=$?
+      # Exit code 66 means scheme is not configured for testing (no test targets)
+      if [ "$TEST_EXIT_CODE" -eq 66 ]; then
+        log_warning "Xcode scheme is not configured for testing (no test targets in project)"
+        log_info "  → This is normal if the project doesn't have test targets yet"
+        log_info "  → To add tests: Create test targets in Xcode and configure the scheme"
+      else
+        log_error "Xcode tests failed for ${SCHEME_NAME} (exit code: ${TEST_EXIT_CODE})"
+        log_info "  → Check test output: cat /tmp/xcode_test_output.log"
+        log_info "  → Note: Test failures may be expected if dependencies are not available"
+      fi
+    fi
+  else
+    log_warning "xcodebuild command not found (Xcode not installed or not on PATH)"
+    log_info "  → Xcode tests skipped (scheme validation still performed)"
+  fi
 else
   log_warning "Xcode scheme file not found (skipping Xcode-specific tests)"
+  log_info "  → Expected location: ${PROJECT_ROOT}/clients/apps/macos-f90hub/F90Hub.xcodeproj/xcshareddata/xcschemes/F90Hub.xcscheme"
 fi
 
 # Check shell scripts use FOUNDRY90_ROOT pattern
@@ -677,6 +711,296 @@ for script in "${KEY_SCRIPTS[@]}"; do
     fi
   fi
 done
+
+echo ""
+
+# Test 15: Additional API Endpoints
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 15: Additional API Endpoints"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Test market status endpoint
+MARKET_STATUS_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/market/status" 2>/dev/null || echo -e "\n000")
+MARKET_STATUS_HTTP_CODE=$(echo "$MARKET_STATUS_RESPONSE" | tail -n1)
+MARKET_STATUS_BODY=$(echo "$MARKET_STATUS_RESPONSE" | sed '$d')
+
+if [ "$MARKET_STATUS_HTTP_CODE" = "200" ]; then
+  log_success "API /market/status endpoint returned 200"
+  if echo "$MARKET_STATUS_BODY" | grep -q '"market"'; then
+    log_success "Market status endpoint returns valid data"
+  else
+    log_warning "Market status response format unexpected"
+  fi
+elif [ "$MARKET_STATUS_HTTP_CODE" = "404" ]; then
+  log_warning "Market status endpoint returned 404 (may need ETL run to populate market_status table)"
+else
+  log_warning "Market status endpoint returned ${MARKET_STATUS_HTTP_CODE}"
+fi
+
+# Test instrument news endpoint (if we have an instrument)
+if [ -n "$FIRST_INSTRUMENT_ID" ] && [ "$FIRST_INSTRUMENT_ID" != "" ]; then
+  NEWS_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/instruments/${FIRST_INSTRUMENT_ID}/news" 2>/dev/null || echo -e "\n000")
+  NEWS_HTTP_CODE=$(echo "$NEWS_RESPONSE" | tail -n1)
+  NEWS_BODY=$(echo "$NEWS_RESPONSE" | sed '$d')
+  
+  if [ "$NEWS_HTTP_CODE" = "200" ]; then
+    log_success "API /instruments/${FIRST_INSTRUMENT_ID}/news endpoint returned 200"
+    if echo "$NEWS_BODY" | grep -q '^\['; then
+      NEWS_COUNT=$(echo "$NEWS_BODY" | grep -o '"headline"' | wc -l | tr -d ' ')
+      log_success "News endpoint returned ${NEWS_COUNT} articles (or empty array if none)"
+    fi
+  else
+    log_warning "News endpoint returned ${NEWS_HTTP_CODE} (may be normal if no news articles)"
+  fi
+fi
+
+# Test Kalshi markets endpoint (may require authentication or return empty)
+KALSHI_MARKETS_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/kalshi/markets?limit=5" 2>/dev/null || echo -e "\n000")
+KALSHI_MARKETS_HTTP_CODE=$(echo "$KALSHI_MARKETS_RESPONSE" | tail -n1)
+if [ "$KALSHI_MARKETS_HTTP_CODE" = "200" ] || [ "$KALSHI_MARKETS_HTTP_CODE" = "401" ] || [ "$KALSHI_MARKETS_HTTP_CODE" = "404" ]; then
+  log_success "Kalshi markets endpoint is accessible (HTTP ${KALSHI_MARKETS_HTTP_CODE})"
+else
+  log_warning "Kalshi markets endpoint returned ${KALSHI_MARKETS_HTTP_CODE}"
+fi
+
+# Test FRED releases endpoint
+FRED_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/fred/releases/upcoming" 2>/dev/null || echo -e "\n000")
+FRED_HTTP_CODE=$(echo "$FRED_RESPONSE" | tail -n1)
+if [ "$FRED_HTTP_CODE" = "200" ]; then
+  log_success "FRED releases endpoint returned 200"
+elif [ "$FRED_HTTP_CODE" = "503" ] || [ "$FRED_HTTP_CODE" = "500" ]; then
+  log_warning "FRED releases endpoint returned ${FRED_HTTP_CODE} (may need FRED_API_KEY configured)"
+else
+  log_warning "FRED releases endpoint returned ${FRED_HTTP_CODE}"
+fi
+
+# Test error handling - 404 for non-existent instrument
+NOT_FOUND_RESPONSE=$(curl -s -w "\n%{http_code}" --max-time 5 "http://localhost:3000/instruments/999999999" 2>/dev/null || echo -e "\n000")
+NOT_FOUND_HTTP_CODE=$(echo "$NOT_FOUND_RESPONSE" | tail -n1)
+if [ "$NOT_FOUND_HTTP_CODE" = "404" ]; then
+  log_success "API correctly returns 404 for non-existent instrument"
+else
+  log_warning "API returned ${NOT_FOUND_HTTP_CODE} for non-existent instrument (expected 404)"
+fi
+
+echo ""
+
+# Test 16: Container Health and Resource Usage
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 16: Container Health and Resource Usage"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check container restart counts (high restart count indicates issues)
+for container in "${REQUIRED_CONTAINERS[@]}"; do
+  RESTART_COUNT=$(docker inspect "$container" --format '{{.RestartCount}}' 2>/dev/null || echo "0")
+  if [ "$RESTART_COUNT" -eq 0 ]; then
+    log_success "Container ${container} has not restarted (stable)"
+  elif [ "$RESTART_COUNT" -lt 5 ]; then
+    log_warning "Container ${container} has restarted ${RESTART_COUNT} time(s)"
+  else
+    log_error "Container ${container} has restarted ${RESTART_COUNT} times (may indicate instability)"
+  fi
+done
+
+# Check container memory usage (warn if over 80% of available)
+if command -v docker >/dev/null 2>&1; then
+  for container in "${REQUIRED_CONTAINERS[@]}"; do
+    MEM_USAGE=$(docker stats "$container" --no-stream --format '{{.MemUsage}}' 2>/dev/null | awk '{print $1}' || echo "")
+    if [ -n "$MEM_USAGE" ]; then
+      log_info "Container ${container} memory usage: ${MEM_USAGE}"
+    fi
+  done
+fi
+
+echo ""
+
+# Test 17: Database Performance and Connection Pool
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 17: Database Performance and Connection Pool"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check active database connections
+ACTIVE_CONNECTIONS=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT count(*) FROM pg_stat_activity WHERE datname = 'fmhub';" 2>/dev/null || echo "0")
+if [ "$ACTIVE_CONNECTIONS" -gt 0 ]; then
+  log_success "Database has ${ACTIVE_CONNECTIONS} active connection(s)"
+  if [ "$ACTIVE_CONNECTIONS" -gt 50 ]; then
+    log_warning "High number of database connections (${ACTIVE_CONNECTIONS}) - may indicate connection pool leak"
+  fi
+else
+  log_warning "No active database connections found"
+fi
+
+# Check database size
+DB_SIZE=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT pg_size_pretty(pg_database_size('fmhub'));" 2>/dev/null || echo "")
+if [ -n "$DB_SIZE" ]; then
+  log_info "Database size: ${DB_SIZE}"
+fi
+
+# Check for long-running queries (potential performance issues)
+LONG_QUERIES=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT count(*) FROM pg_stat_activity WHERE state = 'active' AND now() - query_start > interval '5 seconds';" 2>/dev/null || echo "0")
+if [ "$LONG_QUERIES" -eq 0 ]; then
+  log_success "No long-running queries detected"
+else
+  log_warning "Found ${LONG_QUERIES} long-running query(ies) (may indicate performance issues)"
+fi
+
+echo ""
+
+# Test 18: API Response Times and Performance
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 18: API Response Times and Performance"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Test health endpoint response time
+HEALTH_TIME=$(curl -s -w "%{time_total}" -o /dev/null --max-time 5 http://localhost:3000/health 2>/dev/null || echo "999")
+# Convert seconds to milliseconds (multiply by 1000)
+if command -v bc >/dev/null 2>&1; then
+  HEALTH_TIME_MS=$(echo "$HEALTH_TIME * 1000" | bc 2>/dev/null | cut -d. -f1 || echo "999")
+else
+  # Fallback: use awk for calculation
+  HEALTH_TIME_MS=$(awk "BEGIN {printf \"%.0f\", $HEALTH_TIME * 1000}" 2>/dev/null || echo "999")
+fi
+if [ "$HEALTH_TIME_MS" -lt 100 ]; then
+  log_success "Health endpoint response time: ${HEALTH_TIME_MS}ms (excellent)"
+elif [ "$HEALTH_TIME_MS" -lt 500 ]; then
+  log_success "Health endpoint response time: ${HEALTH_TIME_MS}ms (good)"
+elif [ "$HEALTH_TIME_MS" -lt 1000 ]; then
+  log_warning "Health endpoint response time: ${HEALTH_TIME_MS}ms (slow)"
+else
+  log_error "Health endpoint response time: ${HEALTH_TIME_MS}ms (very slow)"
+fi
+
+# Test instruments endpoint response time
+INSTRUMENTS_TIME=$(curl -s -w "%{time_total}" -o /dev/null --max-time 5 "http://localhost:3000/instruments?limit=10" 2>/dev/null || echo "999")
+# Convert seconds to milliseconds
+if command -v bc >/dev/null 2>&1; then
+  INSTRUMENTS_TIME_MS=$(echo "$INSTRUMENTS_TIME * 1000" | bc 2>/dev/null | cut -d. -f1 || echo "999")
+else
+  # Fallback: use awk for calculation
+  INSTRUMENTS_TIME_MS=$(awk "BEGIN {printf \"%.0f\", $INSTRUMENTS_TIME * 1000}" 2>/dev/null || echo "999")
+fi
+if [ "$INSTRUMENTS_TIME_MS" -lt 200 ]; then
+  log_success "Instruments endpoint response time: ${INSTRUMENTS_TIME_MS}ms (excellent)"
+elif [ "$INSTRUMENTS_TIME_MS" -lt 1000 ]; then
+  log_success "Instruments endpoint response time: ${INSTRUMENTS_TIME_MS}ms (good)"
+elif [ "$INSTRUMENTS_TIME_MS" -lt 2000 ]; then
+  log_warning "Instruments endpoint response time: ${INSTRUMENTS_TIME_MS}ms (slow)"
+else
+  log_error "Instruments endpoint response time: ${INSTRUMENTS_TIME_MS}ms (very slow)"
+fi
+
+echo ""
+
+# Test 19: Data Integrity and Consistency
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 19: Data Integrity and Consistency"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check for instruments with missing required fields
+MISSING_TICKER=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT COUNT(*) FROM instruments WHERE ticker IS NULL OR ticker = '';" 2>/dev/null || echo "0")
+if [ "$MISSING_TICKER" -eq 0 ]; then
+  log_success "All instruments have ticker values"
+else
+  log_error "Found ${MISSING_TICKER} instrument(s) with missing ticker values"
+fi
+
+# Check focus universe integrity (tickers in focus should exist in instruments)
+FOCUS_COUNT=$(docker exec fmhub_db psql -U app -d fmhub -tAc "SELECT COUNT(*) FROM instrument_focus_universe;" 2>/dev/null || echo "0")
+if [ "$FOCUS_COUNT" -gt 0 ]; then
+  ORPHANED_FOCUS=$(docker exec fmhub_db psql -U app -d fmhub -tAc "
+    SELECT COUNT(*) FROM instrument_focus_universe ifu
+    LEFT JOIN instruments i ON ifu.instrument_id = i.id
+    WHERE i.id IS NULL;
+  " 2>/dev/null || echo "0")
+  
+  if [ "$ORPHANED_FOCUS" -eq 0 ]; then
+    log_success "Focus universe integrity check passed (all focus instruments exist)"
+  else
+    log_error "Found ${ORPHANED_FOCUS} orphaned focus universe entry(ies)"
+  fi
+else
+  log_warning "Focus universe is empty (may need ETL run)"
+fi
+
+# Check for duplicate tickers (shouldn't exist for active instruments)
+DUPLICATE_TICKERS=$(docker exec fmhub_db psql -U app -d fmhub -tAc "
+  SELECT COUNT(*) FROM (
+    SELECT ticker, COUNT(*) as cnt
+    FROM instruments
+    WHERE status = 'active'
+    GROUP BY ticker
+    HAVING COUNT(*) > 1
+  ) dups;
+" 2>/dev/null || echo "0")
+
+if [ "$DUPLICATE_TICKERS" -eq 0 ]; then
+  log_success "No duplicate active tickers found"
+else
+  log_error "Found ${DUPLICATE_TICKERS} duplicate active ticker(s)"
+fi
+
+echo ""
+
+# Test 20: Network Connectivity Between Containers
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 20: Network Connectivity Between Containers"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Verify connectivity by checking health endpoint responses (from Tests 4, 4.5, and 5)
+# This is more reliable than trying to use tools that may not be installed in containers
+
+# API → Database connectivity (verified by API health endpoint in Test 4)
+if echo "$BODY" | grep -q '"db_ok":true'; then
+  log_success "API container can reach database via Docker network (confirmed by health endpoint)"
+else
+  log_error "API container cannot reach database (health endpoint reports db_ok:false)"
+fi
+
+# API → Redis connectivity (verified by system health endpoint in Test 5)
+if echo "$SYSTEM_BODY" | grep -q '"redis":"up"'; then
+  log_success "API container can reach Redis via Docker network (confirmed by system health endpoint)"
+else
+  log_error "API container cannot reach Redis (system health reports redis:down)"
+fi
+
+# Hadron → Database connectivity (verified by Hadron health endpoint in Test 4.5)
+if echo "$HADRON_BODY" | grep -q '"db_ok":true'; then
+  log_success "Hadron container can reach database via Docker network (confirmed by health endpoint)"
+else
+  log_error "Hadron container cannot reach database (health endpoint reports db_ok:false)"
+fi
+
+echo ""
+
+# Test 21: Environment Variable Validation
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Test 21: Environment Variable Validation"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Check critical environment variables are set in containers
+API_DB_URL=$(docker exec fmhub_api printenv DATABASE_URL 2>/dev/null || echo "")
+if [ -n "$API_DB_URL" ]; then
+  log_success "API container has DATABASE_URL configured"
+else
+  log_error "API container missing DATABASE_URL environment variable"
+fi
+
+HADRON_DB_URL=$(docker exec fmhub_hadron printenv DATABASE_URL 2>/dev/null || echo "")
+if [ -n "$HADRON_DB_URL" ]; then
+  log_success "Hadron container has DATABASE_URL configured"
+else
+  log_error "Hadron container missing DATABASE_URL environment variable"
+fi
+
+# Check if simulation mode is set for Hadron (important for safety)
+HADRON_SIM=$(docker exec fmhub_hadron printenv HADRON_SIMULATION_MODE 2>/dev/null || echo "")
+if [ "$HADRON_SIM" = "true" ]; then
+  log_success "Hadron is in simulation mode (safe for testing)"
+elif [ -z "$HADRON_SIM" ]; then
+  log_warning "HADRON_SIMULATION_MODE not set (defaults to true, but should be explicit)"
+else
+  log_warning "Hadron simulation mode is: ${HADRON_SIM} (ensure this is intentional)"
+fi
 
 echo ""
 
