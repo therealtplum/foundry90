@@ -41,6 +41,27 @@ db-apply-schema:
 	cat $(SCHEMA_FILE) | $(DOCKER_COMPOSE) exec -T db psql -U $(DB_USER) -d $(DB_NAME)
 
 # ----------------------------------------------------------------------
+# Apply sports teams schema
+# ----------------------------------------------------------------------
+db-apply-sports-teams-schema:
+	@echo "📦 Applying sports teams schema"
+	cat services/db/schema_sports_teams.sql | $(DOCKER_COMPOSE) exec -T db psql -U $(DB_USER) -d $(DB_NAME)
+
+# ----------------------------------------------------------------------
+# Apply sports teams venue codes schema
+# ----------------------------------------------------------------------
+db-apply-venue-codes-schema:
+	@echo "📦 Applying sports teams venue codes schema"
+	cat services/db/schema_sports_teams_venue_codes.sql | $(DOCKER_COMPOSE) exec -T db psql -U $(DB_USER) -d $(DB_NAME)
+
+# ----------------------------------------------------------------------
+# Seed sports teams data
+# ----------------------------------------------------------------------
+db-seed-sports-teams:
+	@echo "🌱 Seeding sports teams data"
+	cd apps/python-etl && python -m etl.seed_sports_teams
+
+# ----------------------------------------------------------------------
 # Quickly open a psql shell inside the DB container
 # ----------------------------------------------------------------------
 db-shell:
