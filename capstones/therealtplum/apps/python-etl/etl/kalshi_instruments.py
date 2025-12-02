@@ -180,7 +180,7 @@ def upsert_instrument(cur, market: dict):
         )
 
 
-def fetch_all_markets():
+def fetch_all_markets(use_filters: bool = False):
     """
     Fetch all active markets from Kalshi API.
     
@@ -189,7 +189,22 @@ def fetch_all_markets():
     
     Note: Kalshi API uses cursor-based pagination. The response includes
     a 'cursor' field that should be used for the next page.
+    
+    Args:
+        use_filters: If True, use filters_by_sport data for optimized fetching
     """
+    # Use optimized version if requested and available
+    if use_filters:
+        try:
+            from kalshi_instruments_optimized import fetch_all_markets_optimized
+            log.info("Using optimized fetch with filters_by_sport data...")
+            fetch_all_markets_optimized()
+            return
+        except ImportError:
+            log.warning("Optimized module not available, falling back to standard fetch")
+        except Exception as e:
+            log.warning(f"Optimized fetch failed: {e}, falling back to standard fetch")
+    
     base_url = f"{KALSHI_BASE_URL}/markets"
     params = {
         "limit": 1000,  # Max per page

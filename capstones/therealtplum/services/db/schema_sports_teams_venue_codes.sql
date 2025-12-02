@@ -25,6 +25,9 @@ CREATE TABLE venues (
     website_url         TEXT,
     api_documentation_url TEXT,
     
+    -- API Metadata (JSONB for flexible storage of venue-specific API data)
+    api_metadata        JSONB,                        -- Store API responses like filters_by_sport, etc.
+    
     -- Metadata
     is_active           BOOLEAN NOT NULL DEFAULT true,
     notes               TEXT,                         -- Any notes about the venue
@@ -38,6 +41,7 @@ CREATE INDEX venues_code_idx ON venues (venue_code) WHERE is_active = true;
 CREATE INDEX venues_type_idx ON venues (venue_type, is_active);
 CREATE INDEX venues_country_idx ON venues (country, is_active);
 CREATE INDEX venues_mic_code_idx ON venues (mic_code) WHERE mic_code IS NOT NULL;
+CREATE INDEX venues_api_metadata_idx ON venues USING GIN (api_metadata) WHERE api_metadata IS NOT NULL;
 
 -- Trigger for updated_at
 CREATE TRIGGER venues_set_updated_at

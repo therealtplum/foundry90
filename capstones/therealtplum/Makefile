@@ -62,6 +62,34 @@ db-seed-sports-teams:
 	cd apps/python-etl && python -m etl.seed_sports_teams
 
 # ----------------------------------------------------------------------
+# Sync Kalshi filters_by_sport data
+# ----------------------------------------------------------------------
+kalshi-sync-filters:
+	@echo "🔄 Syncing Kalshi filters_by_sport data"
+	cd apps/python-etl && python -m etl.kalshi_filters_by_sport
+
+# ----------------------------------------------------------------------
+# Sync Kalshi tags_by_categories data
+# ----------------------------------------------------------------------
+kalshi-sync-tags:
+	@echo "🔄 Syncing Kalshi tags_by_categories data"
+	cd apps/python-etl && python -m etl.kalshi_tags_by_categories
+
+# ----------------------------------------------------------------------
+# Fetch Kalshi instruments (optimized using filters)
+# ----------------------------------------------------------------------
+kalshi-fetch-instruments:
+	@echo "📥 Fetching Kalshi instruments (optimized)"
+	cd apps/python-etl && python -m etl.kalshi_instruments_optimized
+
+# ----------------------------------------------------------------------
+# Fetch Kalshi instruments (all markets - legacy)
+# ----------------------------------------------------------------------
+kalshi-fetch-instruments-all:
+	@echo "📥 Fetching ALL Kalshi instruments (may take hours)"
+	cd apps/python-etl && python -m etl.kalshi_instruments
+
+# ----------------------------------------------------------------------
 # Quickly open a psql shell inside the DB container
 # ----------------------------------------------------------------------
 db-shell:
