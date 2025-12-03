@@ -500,6 +500,18 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
     let config = &state.env_config;
     let timestamp = chrono::Utc::now().to_rfc3339();
 
+    // Check database connectivity
+    let db_ok = match sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&state.db_pool)
+        .await
+    {
+        Ok(_) => true,
+        Err(err) => {
+            error!("DB health check failed: {err}");
+            false
+        }
+    };
+
     let body = HealthResponse {
         env: config.env.clone(),
         status: "ok".to_string(),
@@ -507,6 +519,7 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
         message: config.health_message(),
         commit: config.commit_sha.clone(),
         timestamp,
+        db_ok,
         preview_versions: config.preview_versions(),
     };
 

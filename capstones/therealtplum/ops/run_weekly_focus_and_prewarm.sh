@@ -35,13 +35,13 @@ echo "[weekly_focus_and_prewarm] $(TS) Postgres is ready." | tee -a "$LOGFILE"
 # --- Step 1: refresh instrument_focus_universe ---
 
 echo "[weekly_focus_and_prewarm] $(TS) Running instrument_focus_universe ETL..." | tee -a "$LOGFILE"
-docker compose run --rm etl python -m etl.instrument_focus_universe \
+docker compose run --rm etl python -m etl.core.instrument_focus_universe \
   2>&1 | tee -a "$LOGFILE"
 
 # --- Step 2: prewarm insights for focus universe ---
 
 echo "[weekly_focus_and_prewarm] $(TS) Running prewarm_instrument_insights..." | tee -a "$LOGFILE"
-docker compose run --rm etl python -m etl.prewarm_instrument_insights \
+docker compose run --rm etl python -m etl.core.prewarm_instrument_insights \
   2>&1 | tee -a "$LOGFILE"
 
 echo "[weekly_focus_and_prewarm] $(TS) END weekly focus + prewarm" | tee -a "$LOGFILE"

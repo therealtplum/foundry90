@@ -8,7 +8,7 @@ import os
 import sys
 import json
 import logging
-from etl.kalshi_user_account import fetch_user_account_data
+from etl.kalshi.kalshi_user_account import fetch_user_account_data
 
 logging.basicConfig(
     level=logging.INFO,

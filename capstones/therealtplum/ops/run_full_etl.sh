@@ -58,21 +58,21 @@ fi
 # --- ETL steps ---
 
 echo "[FMHub] $(TS) ETL step: polygon_instruments..."
-docker compose run --rm etl python -m etl.polygon_instruments
+docker compose run --rm etl python -m etl.polygon.polygon_instruments
 
 echo "[FMHub] $(TS) ETL step: polygon_price_prev_daily..."
-docker compose run --rm etl python -m etl.polygon_price_prev_daily
+docker compose run --rm etl python -m etl.polygon.polygon_price_prev_daily
 
 echo "[FMHub] $(TS) ETL step: instrument_focus_universe..."
-docker compose run --rm etl python -m etl.instrument_focus_universe
+docker compose run --rm etl python -m etl.core.instrument_focus_universe
 
 echo "[FMHub] $(TS) ETL step: export_sample_tickers_json..."
-docker compose run --rm etl python -m etl.export_sample_tickers_json
+docker compose run --rm etl python -m etl.core.export_sample_tickers_json
 
 echo "[FMHub] $(TS) ETL step: polygon_news..."
-docker compose run --rm etl python -m etl.polygon_news
+docker compose run --rm etl python -m etl.polygon.polygon_news
 
 echo "[FMHub] $(TS) ETL step: prewarm_instrument_insights..."
-docker compose run --rm etl python -m etl.prewarm_instrument_insights
+docker compose run --rm etl python -m etl.core.prewarm_instrument_insights
 
 echo "[FMHub] $(TS) Full ETL completed."

@@ -6,7 +6,7 @@ Or: python etl/kalshi_ticker_parser_test.py
 """
 
 import unittest
-from kalshi_ticker_parser import (
+from etl.kalshi.kalshi_ticker_parser import (
     parse_kalshi_ticker,
     parse_sports_game_ticker,
     parse_election_ticker,

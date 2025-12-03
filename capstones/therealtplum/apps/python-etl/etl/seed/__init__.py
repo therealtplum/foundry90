@@ -1,0 +1,2 @@
+# Database seeding scripts
+

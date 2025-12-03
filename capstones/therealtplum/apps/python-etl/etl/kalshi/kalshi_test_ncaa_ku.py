@@ -32,7 +32,7 @@ load_dotenv()
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from etl.kalshi_ticker_parser import parse_kalshi_ticker
+from etl.kalshi.kalshi_ticker_parser import parse_kalshi_ticker
 
 logging.basicConfig(
     level=logging.INFO,

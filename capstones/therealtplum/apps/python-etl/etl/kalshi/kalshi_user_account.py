@@ -232,7 +232,7 @@ class KalshiAuthenticatedClient:
             Dictionary of authentication headers
         """
         try:
-            from etl.kalshi_rsa_signing import sign_kalshi_request
+            from etl.kalshi.kalshi_rsa_signing import sign_kalshi_request
             # Remove leading slash if present, as we add the prefix
             clean_path = path.lstrip('/')
             return sign_kalshi_request(

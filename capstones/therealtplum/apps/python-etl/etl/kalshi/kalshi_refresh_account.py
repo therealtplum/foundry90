@@ -11,7 +11,7 @@ import logging
 import psycopg2
 from datetime import datetime, timezone
 from dotenv import load_dotenv
-from etl.kalshi_user_account import fetch_user_account_data, get_user_credentials
+from etl.kalshi.kalshi_user_account import fetch_user_account_data, get_user_credentials
 
 # Load .env file if it exists
 load_dotenv()
@@ -125,7 +125,7 @@ if __name__ == "__main__":
                 print(json.dumps({"error": "KALSHI_API_KEY_ID and KALSHI_API_SECRET (or KALSHI_API_SECRET_FILE) must be set"}))
                 sys.exit(1)
             
-            from etl.kalshi_user_account import KalshiAuthenticatedClient
+            from etl.kalshi.kalshi_user_account import KalshiAuthenticatedClient
             
             client = KalshiAuthenticatedClient(api_key, api_secret)
             balance = client.get_balance()

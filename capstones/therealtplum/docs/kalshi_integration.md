@@ -91,7 +91,7 @@ The WebSocket service (`kalshi_websocket.py`) provides:
 ### Usage
 
 ```python
-from etl.kalshi_websocket import KalshiWebSocketClient
+from etl.kalshi.kalshi_websocket import KalshiWebSocketClient
 
 client = KalshiWebSocketClient()
 await client.start(tickers=["PRES-2024-11-05-BIDEN"])
@@ -104,7 +104,7 @@ The service runs as a background process and updates Redis cache.
 ### Storing Credentials
 
 ```python
-from etl.kalshi_user_account import store_user_credentials
+from etl.kalshi.kalshi_user_account import store_user_credentials
 
 store_user_credentials(
     user_id="user123",
@@ -117,7 +117,7 @@ store_user_credentials(
 ### Fetching Account Data
 
 ```python
-from etl.kalshi_user_account import fetch_user_account_data
+from etl.kalshi.kalshi_user_account import fetch_user_account_data
 
 account_data = fetch_user_account_data("user123")
 # Returns: {balance, positions, account, fetched_at}
@@ -139,7 +139,7 @@ Kalshi tickers are often cryptic (e.g., "PRES-2024-11-05-BIDEN"). The `kalshi_ti
 ### Display Name Formatting
 
 ```python
-from etl.kalshi_ticker_utils import format_ticker_display_name
+from etl.kalshi.kalshi_ticker_utils import format_ticker_display_name
 
 display_name = format_ticker_display_name(
     "PRES-2024-11-05-BIDEN",
@@ -151,7 +151,7 @@ display_name = format_ticker_display_name(
 ### Ticker Parsing
 
 ```python
-from etl.kalshi_ticker_utils import parse_kalshi_ticker
+from etl.kalshi.kalshi_ticker_parser import parse_kalshi_ticker
 
 parsed = parse_kalshi_ticker("PRES-2024-11-05-BIDEN")
 # Returns: {
@@ -166,7 +166,7 @@ parsed = parse_kalshi_ticker("PRES-2024-11-05-BIDEN")
 ### Categorization
 
 ```python
-from etl.kalshi_ticker_utils import categorize_ticker
+from etl.kalshi.kalshi_ticker_utils import categorize_ticker
 
 category = categorize_ticker("PRES-2024-11-05-BIDEN")
 # Returns: "Politics"
@@ -182,7 +182,7 @@ Parlays in Kalshi are combinations of multiple events. The system handles them v
 
 Example:
 ```python
-from etl.kalshi_ticker_utils import format_parlay_display
+from etl.kalshi.kalshi_ticker_utils import format_parlay_display
 
 parlay = {
     "markets": ["PRES-2024-BIDEN", "SENATE-2024-DEM"],
@@ -255,13 +255,13 @@ REDIS_URL=redis://localhost:6379
 
 ```bash
 # Fetch instruments
-docker compose run --rm etl python -m etl.kalshi_instruments
+docker compose run --rm etl python -m etl.kalshi.kalshi_instruments
 
 # Fetch market data
-docker compose run --rm etl python -m etl.kalshi_market_data
+docker compose run --rm etl python -m etl.kalshi.kalshi_market_data
 
 # Start WebSocket service (runs continuously)
-docker compose run --rm etl python -m etl.kalshi_websocket
+docker compose run --rm etl python -m etl.kalshi.kalshi_websocket
 ```
 
 ### API Endpoints

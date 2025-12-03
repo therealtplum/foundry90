@@ -53,7 +53,7 @@ docker compose run --rm \
   -e SAMPLE_TICKERS_OUTPUT_PATH="$EXPORT_PATH" \
   -e SAMPLE_TICKERS_LIMIT="$SAMPLE_TICKERS_LIMIT" \
   -e POLYGON_API_KEY="${POLYGON_API_KEY:-}" \
-  etl python -m etl.export_sample_tickers_json
+  etl python -m etl.core.export_sample_tickers_json
 
 echo "[export_sample_tickers] $(TS) Export complete."
 echo "[export_sample_tickers] $(TS) Host file should now be updated at:"

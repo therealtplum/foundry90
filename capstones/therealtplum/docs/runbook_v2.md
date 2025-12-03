@@ -206,22 +206,22 @@ This script:
 
 ```bash
 # Instruments
-docker compose run --rm etl python -m etl.polygon_instruments
+docker compose run --rm etl python -m etl.polygon.polygon_instruments
 
 # News (stub)
-docker compose run --rm etl python -m etl.polygon_news
+docker compose run --rm etl python -m etl.polygon.polygon_news
 
 # Price data
-docker compose run --rm etl python -m etl.polygon_price_prev_daily
+docker compose run --rm etl python -m etl.polygon.polygon_price_prev_daily
 
 # Focus universe
-docker compose run --rm etl python -m etl.instrument_focus_universe
+docker compose run --rm etl python -m etl.core.instrument_focus_universe
 
 # Prewarm insights
-docker compose run --rm etl python -m etl.prewarm_instrument_insights
+docker compose run --rm etl python -m etl.core.prewarm_instrument_insights
 
 # Export sample tickers
-docker compose run --rm etl python -m etl.export_sample_tickers_json
+docker compose run --rm etl python -m etl.core.export_sample_tickers_json
 # or use the wrapper script:
 ./ops/export_sample_tickers_json.sh
 ```
@@ -432,7 +432,7 @@ docker compose down -v
 
 3. **Run ETL with verbose output:**
    ```bash
-   docker compose run --rm etl python -m etl.polygon_instruments
+   docker compose run --rm etl python -m etl.polygon.polygon_instruments
    ```
 
 ### API Not Responding

@@ -80,22 +80,22 @@ fi
 echo "[FMHub] $(TS) Running ETL pipeline..."
 
 echo "[FMHub] $(TS) ETL step: polygon_instruments..."
-docker compose run --rm etl python -m etl.polygon_instruments || echo "[FMHub] $(TS) WARNING: polygon_instruments failed"
+docker compose run --rm etl python -m etl.polygon.polygon_instruments || echo "[FMHub] $(TS) WARNING: polygon_instruments failed"
 
 echo "[FMHub] $(TS) ETL step: polygon_price_prev_daily..."
-docker compose run --rm etl python -m etl.polygon_price_prev_daily || echo "[FMHub] $(TS) WARNING: polygon_price_prev_daily failed"
+docker compose run --rm etl python -m etl.polygon.polygon_price_prev_daily || echo "[FMHub] $(TS) WARNING: polygon_price_prev_daily failed"
 
 echo "[FMHub] $(TS) ETL step: polygon_news..."
-docker compose run --rm etl python -m etl.polygon_news || echo "[FMHub] $(TS) WARNING: polygon_news failed"
+docker compose run --rm etl python -m etl.polygon.polygon_news || echo "[FMHub] $(TS) WARNING: polygon_news failed"
 
 echo "[FMHub] $(TS) ETL step: instrument_focus_universe..."
-docker compose run --rm etl python -m etl.instrument_focus_universe || echo "[FMHub] $(TS) WARNING: instrument_focus_universe failed"
+docker compose run --rm etl python -m etl.core.instrument_focus_universe || echo "[FMHub] $(TS) WARNING: instrument_focus_universe failed"
 
 echo "[FMHub] $(TS) ETL step: export_sample_tickers_json..."
-docker compose run --rm etl python -m etl.export_sample_tickers_json || echo "[FMHub] $(TS) WARNING: export_sample_tickers_json failed"
+docker compose run --rm etl python -m etl.core.export_sample_tickers_json || echo "[FMHub] $(TS) WARNING: export_sample_tickers_json failed"
 
 echo "[FMHub] $(TS) ETL step: prewarm_instrument_insights..."
-docker compose run --rm etl python -m etl.prewarm_instrument_insights || echo "[FMHub] $(TS) WARNING: prewarm_instrument_insights failed"
+docker compose run --rm etl python -m etl.core.prewarm_instrument_insights || echo "[FMHub] $(TS) WARNING: prewarm_instrument_insights failed"
 
 echo "[FMHub] $(TS) =========================================="
 echo "[FMHub] $(TS) Stack is running!"

@@ -60,6 +60,7 @@ pub struct HealthResponse {
     pub message: String,
     pub commit: String,
     pub timestamp: String,
+    pub db_ok: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview_versions: Option<Vec<String>>,
 }
