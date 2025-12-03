@@ -20,9 +20,11 @@ use tracing_subscriber::{fmt, EnvFilter};
 mod system_health;
 mod kalshi;
 mod fred;
+mod env_config;
 
 use deadpool_redis::{Config as RedisConfig, Pool as RedisPool};
 use deadpool_redis::redis::AsyncCommands;
+use env_config::{EnvConfig, HealthResponse, ComingSoonResponse};
 
 /// Shared application state
 #[derive(Clone)]
@@ -30,13 +32,9 @@ pub struct AppState {
     pub db_pool: PgPool,
     pub redis_pool: RedisPool,
     pub(crate) chat_client: Option<ChatClient>,
+    pub env_config: EnvConfig,
 }
 
-#[derive(Serialize)]
-struct HealthResponse {
-    status: String,
-    db_ok: bool,
-}
 
 /// Lightweight instrument listing DTO
 #[derive(Debug, Serialize, FromRow)]
@@ -419,10 +417,17 @@ async fn main() -> anyhow::Result<()> {
         info!("OPENAI_API_KEY not set; insight generation will fall back to cache-only.");
     }
 
+    let env_config = EnvConfig::from_env();
+    info!(
+        "Environment config: env={}, version={}, commit={}",
+        env_config.env, env_config.api_version, env_config.commit_sha
+    );
+
     let state = AppState {
         db_pool,
         redis_pool,
         chat_client,
+        env_config: env_config.clone(),
     };
 
     // CORS
@@ -431,9 +436,25 @@ async fn main() -> anyhow::Result<()> {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    // Versioned API routes - catch-all for any path under /v1 or /v1-staged
+    // Handle both empty path (just /v1 or /v1-staged) and paths with content
+    let v1_routes = Router::new()
+        .route("/", get(coming_soon_v1_root_handler))
+        .route("/{*path}", get(coming_soon_v1_handler))
+        .with_state(state.clone());
+
+    let v1_staged_routes = Router::new()
+        .route("/", get(coming_soon_v1_staged_root_handler))
+        .route("/{*path}", get(coming_soon_v1_staged_handler))
+        .with_state(state.clone());
+
     let app = Router::new()
         .route("/health", get(health_handler))
         .route("/system/health", get(system_health::get_system_health))
+        // Versioned API routes
+        .nest("/v1", v1_routes)
+        .nest("/v1-staged", v1_staged_routes)
+        // Legacy routes (keep for backward compatibility during migration)
         .route("/instruments", get(list_instruments_handler))
         .route("/instruments/{id}", get(get_instrument_handler))
         .route("/instruments/{id}/news", get(list_instrument_news_handler))
@@ -476,29 +497,86 @@ async fn main() -> anyhow::Result<()> {
 // ---------------------------------------------------------------------
 
 async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
-    let db_ok = match sqlx::query_scalar::<_, i32>("SELECT 1")
-        .fetch_one(&state.db_pool)
-        .await
-    {
-        Ok(_) => true,
-        Err(err) => {
-            error!("DB health check failed: {err}");
-            false
-        }
-    };
+    let config = &state.env_config;
+    let timestamp = chrono::Utc::now().to_rfc3339();
 
     let body = HealthResponse {
+        env: config.env.clone(),
         status: "ok".to_string(),
-        db_ok,
+        version: config.api_version.clone(),
+        message: config.health_message(),
+        commit: config.commit_sha.clone(),
+        timestamp,
+        preview_versions: config.preview_versions(),
     };
 
-    let status = if db_ok {
-        StatusCode::OK
-    } else {
-        StatusCode::SERVICE_UNAVAILABLE
+    (StatusCode::OK, Json(body))
+}
+
+/// Handler for /v1 root route
+async fn coming_soon_v1_root_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let config = &state.env_config;
+    let route = "/v1".to_string();
+
+    let body = ComingSoonResponse {
+        env: config.env.clone(),
+        status: "coming_soon".to_string(),
+        route,
+        message: "Endpoint defined but not yet implemented.".to_string(),
     };
 
-    (status, Json(body))
+    (StatusCode::NOT_IMPLEMENTED, Json(body))
+}
+
+/// Catch-all handler for /v1/* routes that aren't yet implemented
+async fn coming_soon_v1_handler(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> impl IntoResponse {
+    let config = &state.env_config;
+    let route = format!("/v1/{}", path);
+
+    let body = ComingSoonResponse {
+        env: config.env.clone(),
+        status: "coming_soon".to_string(),
+        route,
+        message: "Endpoint defined but not yet implemented.".to_string(),
+    };
+
+    (StatusCode::NOT_IMPLEMENTED, Json(body))
+}
+
+/// Handler for /v1-staged root route
+async fn coming_soon_v1_staged_root_handler(State(state): State<AppState>) -> impl IntoResponse {
+    let config = &state.env_config;
+    let route = "/v1-staged".to_string();
+
+    let body = ComingSoonResponse {
+        env: config.env.clone(),
+        status: "coming_soon".to_string(),
+        route,
+        message: "Endpoint defined but not yet implemented.".to_string(),
+    };
+
+    (StatusCode::NOT_IMPLEMENTED, Json(body))
+}
+
+/// Catch-all handler for /v1-staged/* routes that aren't yet implemented
+async fn coming_soon_v1_staged_handler(
+    State(state): State<AppState>,
+    Path(path): Path<String>,
+) -> impl IntoResponse {
+    let config = &state.env_config;
+    let route = format!("/v1-staged/{}", path);
+
+    let body = ComingSoonResponse {
+        env: config.env.clone(),
+        status: "coming_soon".to_string(),
+        route,
+        message: "Endpoint defined but not yet implemented.".to_string(),
+    };
+
+    (StatusCode::NOT_IMPLEMENTED, Json(body))
 }
 
 async fn list_instruments_handler(

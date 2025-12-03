@@ -39,6 +39,16 @@ services:
       REDIS_URL: redis://redis:6379
       RUST_LOG: info
 
+      # Environment configuration for multi-env API
+      # For production deployments, set these based on the subdomain:
+      # - api.foundry90.com → F90_ENV=prod
+      # - sim-api.foundry90.com → F90_ENV=sim
+      # - demo-api.foundry90.com → F90_ENV=demo
+      # - dev-api.foundry90.com → F90_ENV=dev
+      F90_ENV: ${F90_ENV:-dev}
+      F90_API_VERSION: ${F90_API_VERSION:-v1}
+      F90_COMMIT_SHA: ${F90_COMMIT_SHA:-local-dev}
+
       # LLM insights
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: gpt-4o-mini
