@@ -10,7 +10,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use sqlx::{FromRow, Row};
+use sqlx::FromRow;
 use tracing::{error, info};
 
 use crate::AppState;

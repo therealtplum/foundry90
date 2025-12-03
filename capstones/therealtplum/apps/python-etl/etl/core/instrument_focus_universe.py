@@ -21,10 +21,20 @@ def get_conn():
 
 def get_latest_price_date(cur) -> str | None:
     """
-    Find the most recent price_date in instrument_price_daily.
+    Find the most recent price_date in instrument_price_daily that has
+    a reasonable number of instruments (at least 1000) to ensure we're
+    using a full trading day rather than a partial day.
     Returns a date string (YYYY-MM-DD) or None if table is empty.
     """
-    cur.execute("SELECT MAX(price_date) FROM instrument_price_daily;")
+    cur.execute("""
+        SELECT price_date
+        FROM instrument_price_daily
+        WHERE data_source = 'polygon_prev'
+        GROUP BY price_date
+        HAVING COUNT(DISTINCT instrument_id) >= 1000
+        ORDER BY price_date DESC
+        LIMIT 1;
+    """)
     row = cur.fetchone()
     return row[0] if row and row[0] is not None else None
 
@@ -54,6 +64,7 @@ def compute_focus_universe(cur, as_of_date: str):
             JOIN instruments_useq i
               ON i.id = p.instrument_id
             WHERE p.price_date = %s
+              AND p.data_source = 'polygon_prev'
         ),
         ranked AS (
             SELECT

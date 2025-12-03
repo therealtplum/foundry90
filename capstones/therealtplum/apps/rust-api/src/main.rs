@@ -116,6 +116,26 @@ struct FocusStripParams {
     limit: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+struct FocusMarketDataParams {
+    limit: Option<i64>,
+    days: Option<i32>, // Number of days of history to fetch (default: 30)
+}
+
+/// Price data point for market charts
+#[derive(Debug, Serialize, FromRow)]
+struct PriceDataPoint {
+    instrument_id: i64,
+    ticker: String,
+    name: String,
+    price_date: chrono::NaiveDate,
+    open: Option<Decimal>,
+    high: Option<Decimal>,
+    low: Option<Decimal>,
+    close: Option<Decimal>,
+    volume: Option<Decimal>,
+}
+
 // ---------------------------------------------------------------------
 // OpenAI chat client
 // ---------------------------------------------------------------------
@@ -463,6 +483,7 @@ async fn main() -> anyhow::Result<()> {
             get(get_instrument_insight_handler),
         )
         .route("/focus/ticker-strip", get(get_focus_ticker_strip))
+        .route("/focus/market-data", get(get_focus_market_data_handler))
         .route("/market/status", get(get_market_status_handler))
         // Kalshi endpoints
         .route("/kalshi/markets", get(kalshi::list_kalshi_markets_handler))
@@ -1160,6 +1181,73 @@ async fn get_focus_ticker_strip(
             (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(Vec::<FocusTickerStripRow>::new()),
+            )
+        }
+    }
+}
+
+/// Get market data (price history) for focus instruments
+async fn get_focus_market_data_handler(
+    State(state): State<AppState>,
+    Query(params): Query<FocusMarketDataParams>,
+) -> impl IntoResponse {
+    let limit = params.limit.unwrap_or(20).clamp(1, 100);
+    let days = params.days.unwrap_or(30).clamp(1, 365);
+
+    // Calculate start date
+    let start_date = chrono::Utc::now().date_naive() - chrono::Duration::days(days as i64);
+
+    let result = sqlx::query_as::<_, PriceDataPoint>(
+        r#"
+        WITH latest_focus AS (
+            SELECT as_of_date
+            FROM instrument_focus_universe
+            GROUP BY as_of_date
+            HAVING COUNT(*) >= 500
+            ORDER BY as_of_date DESC
+            LIMIT 1
+        ),
+        focus_instruments AS (
+            SELECT fu.instrument_id
+            FROM instrument_focus_universe fu
+            JOIN latest_focus lf ON fu.as_of_date = lf.as_of_date
+            ORDER BY fu.activity_rank_global ASC
+            LIMIT $1
+        )
+        SELECT
+            i.id AS instrument_id,
+            i.ticker,
+            i.name,
+            p.price_date,
+            p.open,
+            p.high,
+            p.low,
+            p.close,
+            p.volume
+        FROM focus_instruments fi
+        JOIN instruments i ON i.id = fi.instrument_id
+        JOIN instrument_price_daily p ON p.instrument_id = i.id
+        WHERE p.price_date >= $2
+          AND p.data_source IN ('polygon_prev', 'polygon_historical')
+        ORDER BY i.ticker, p.price_date ASC
+        "#,
+    )
+    .bind(limit)
+    .bind(start_date)
+    .fetch_all(&state.db_pool)
+    .await;
+
+    match result {
+        Ok(rows) => {
+            info!("Successfully fetched {} price data points for focus instruments", rows.len());
+            (StatusCode::OK, Json(rows))
+        }
+        Err(err) => {
+            error!("Failed to fetch focus market data: {err}");
+            error!("Query parameters: limit={}, days={}, start_date={}", limit, days, start_date);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(Vec::<PriceDataPoint>::new()),
             )
         }
     }

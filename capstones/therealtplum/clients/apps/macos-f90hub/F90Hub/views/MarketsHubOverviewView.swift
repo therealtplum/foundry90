@@ -14,6 +14,9 @@ enum WidgetType: String, CaseIterable, Identifiable {
     case positions = "Positions"
     case watchList = "Watch List"
     case fredReleases = "Economic Releases"
+    case priceChart = "Price Charts"
+    case volumeChart = "Volume Analysis"
+    case performanceComparison = "Performance Comparison"
     
     var id: String { rawValue }
     
@@ -29,6 +32,12 @@ enum WidgetType: String, CaseIterable, Identifiable {
             return "list.bullet"
         case .fredReleases:
             return "calendar.badge.clock"
+        case .priceChart:
+            return "chart.xyaxis.line"
+        case .volumeChart:
+            return "chart.bar.fill"
+        case .performanceComparison:
+            return "chart.line.uptrend.xyaxis.circle"
         }
     }
     
@@ -37,6 +46,8 @@ enum WidgetType: String, CaseIterable, Identifiable {
         case .marketStatus, .accountBalances:
             return 1
         case .positions, .watchList, .fredReleases:
+            return 2
+        case .priceChart, .volumeChart, .performanceComparison:
             return 2
         }
     }
@@ -195,6 +206,12 @@ struct MarketsHubOverviewView: View {
                     .cornerRadius(12)
             case .fredReleases:
                 FredReleasesWidget()
+            case .priceChart:
+                PriceChartWidget()
+            case .volumeChart:
+                VolumeChartWidget()
+            case .performanceComparison:
+                PerformanceComparisonWidget()
             }
         }
         .overlay(
