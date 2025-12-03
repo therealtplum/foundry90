@@ -100,15 +100,9 @@ export const LocHistoryChart: React.FC<LocHistoryChartProps> = ({ snapshots }) =
     const weeksDiff = daysDiff / 7;
     const locPerWeek = weeksDiff > 0 ? delta / weeksDiff : 0;
 
-    // Find favorite language (most used across all snapshots)
-    const languageTotals: Record<string, number> = {};
-    snapshots.forEach((snapshot) => {
-      Object.entries(snapshot.by_language || {}).forEach(([lang, count]) => {
-        languageTotals[lang] = (languageTotals[lang] || 0) + count;
-      });
-    });
-
-    const favoriteLanguage = Object.entries(languageTotals).reduce(
+    // Find favorite language based on current (last) snapshot
+    const lastSnapshotLanguages = last.by_language || {};
+    const favoriteLanguage = Object.entries(lastSnapshotLanguages).reduce(
       (max, [lang, count]) => (count > max.count ? { lang, count } : max),
       { lang: "Unknown", count: 0 }
     );
@@ -120,8 +114,9 @@ export const LocHistoryChart: React.FC<LocHistoryChartProps> = ({ snapshots }) =
       lastLoc: last.total_code,
       locPerWeek,
       favoriteLanguage: favoriteLanguage.lang,
-      favoriteLanguageCount: favoriteLanguage.count,
+      favoriteLanguageCount: favoriteLanguage.count, // LOC from current snapshot
       delta,
+      totalCommits: snapshots.length,
     };
   }, [snapshots]);
 
@@ -176,9 +171,12 @@ export const LocHistoryChart: React.FC<LocHistoryChartProps> = ({ snapshots }) =
               >
                 {formatK(stats.lastLoc)}
               </div>
+              <div className="f90-metric-note">
+                {stats.totalCommits} commits
+              </div>
             </div>
             <div className="f90-metric">
-              <div className="f90-metric-label">Favorite Language</div>
+              <div className="f90-metric-label">Most Used Language</div>
               <div
                 className="f90-metric-value"
                 style={{
@@ -189,7 +187,7 @@ export const LocHistoryChart: React.FC<LocHistoryChartProps> = ({ snapshots }) =
                 {stats.favoriteLanguage}
               </div>
               <div className="f90-metric-note">
-                {formatK(stats.favoriteLanguageCount)} total
+                {formatK(stats.favoriteLanguageCount)} LOC
               </div>
             </div>
             <div className="f90-metric">
