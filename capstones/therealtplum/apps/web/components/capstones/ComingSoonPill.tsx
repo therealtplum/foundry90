@@ -88,6 +88,9 @@ export default function ComingSoonPill() {
         <Link href="/capstones/hadron" className="f90-coming-soon-hadron-pill">
           LEARN ABOUT HADRON
         </Link>
+        <Link href="/capstones/loc" className="f90-coming-soon-hadron-pill" style={{ marginLeft: "12px" }}>
+          LEARN ABOUT CODE
+        </Link>
       </div>
 
       <div className="f90-coming-soon-body">

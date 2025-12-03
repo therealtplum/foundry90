@@ -54,7 +54,7 @@ POLYGON_API_KEY=your_polygon_api_key_here
 
 # Required for LLM insights (optional, falls back to cache-only if not set)
 OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MODEL=gpt-5-mini
 
 # Optional: Vercel integration (for system health checks)
 VERCEL_API_TOKEN=your_vercel_token

@@ -147,7 +147,7 @@ struct ChatMessage {
 impl ChatClient {
     fn from_env() -> Option<Self> {
         let api_key = env::var("OPENAI_API_KEY").ok()?;
-        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o-mini".to_string());
+        let model = env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-5-mini".to_string());
 
         let http = reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(60))
@@ -324,20 +324,25 @@ impl ChatClient {
                 {"role": "system", "content": system},
                 {"role": "user", "content": prompt}
             ],
-            "max_tokens": 500,
-            "temperature": 0.3
+            "max_completion_tokens": 500
         });
 
-        let resp = self
+        let http_resp = self
             .http
             .post("https://api.openai.com/v1/chat/completions")
             .bearer_auth(&self.api_key)
             .json(&body)
             .send()
-            .await?
-            .error_for_status()?
-            .json::<ChatResponse>()
             .await?;
+        
+        let status = http_resp.status();
+        if !status.is_success() {
+            let error_text = http_resp.text().await.unwrap_or_else(|_| "Failed to read error response".to_string());
+            error!("OpenAI API error (status={}): {}", status, error_text);
+            anyhow::bail!("OpenAI API error: {} - {}", status, error_text);
+        }
+        
+        let resp = http_resp.json::<ChatResponse>().await?;
 
         let text = resp
             .choices

@@ -43,7 +43,7 @@ export function InsightPanel({ instrumentId }: Props) {
                 {insight.source === "cache" ? "cache" : "fresh LLM"}
               </span>
               <span className="font-mono text-[10px]">
-                {insight.model ?? "gpt-4.1-mini"}
+                {insight.model ?? "gpt-5-mini"}
               </span>
             </>
           )}
